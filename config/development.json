@@ -1,0 +1,55 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "threads": 4,
+    "ssl_enabled": false
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "archneuronx_dev",
+    "user": "dev_user",
+    "connection_pool_size": 10
+  },
+  "model": {
+    "type": "MLP",
+    "input_size": 50,
+    "hidden_layers": [128, 64, 32],
+    "output_size": 3,
+    "dropout_rate": 0.2,
+    "learning_rate": 0.001,
+    "batch_size": 32,
+    "epochs": 100
+  },
+  "data": {
+    "sources": [
+      {
+        "name": "binance",
+        "type": "crypto",
+        "api_key": "${BINANCE_API_KEY}",
+        "secret_key": "${BINANCE_SECRET_KEY}",
+        "symbols": ["BTCUSDT", "ETHUSDT", "ADAUSDT"]
+      }
+    ],
+    "preprocessing": {
+      "normalize": true,
+      "window_size": 50,
+      "features": ["open", "high", "low", "close", "volume"]
+    }
+  },
+  "trading": {
+    "risk_management": {
+      "max_position_size": 0.1,
+      "stop_loss_percentage": 0.02,
+      "take_profit_percentage": 0.04
+    },
+    "signal_threshold": 0.7
+  },
+  "logging": {
+    "level": "DEBUG",
+    "file": "logs/archneuronx_dev.log",
+    "max_size": "100MB",
+    "backup_count": 5
+  }
+}
