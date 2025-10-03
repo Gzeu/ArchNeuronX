@@ -32,9 +32,34 @@ if(NOT cpprestsdk_FOUND)
 endif()
 
 # JSON processing
-find_package(nlohmann_json QUIET)
-if(NOT nlohmann_json_FOUND)
-    message(STATUS "nlohmann_json not found, will use bundled version")
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(JSONCPP jsoncpp)
+if(NOT JSONCPP_FOUND)
+    find_package(jsoncpp QUIET)
+    if(jsoncpp_FOUND)
+        set(JSONCPP_LIBRARIES jsoncpp_lib)
+    else()
+        message(STATUS "jsoncpp not found, will use bundled version")
+    endif()
+endif()
+
+# CURL for HTTP requests
+find_package(CURL REQUIRED)
+if(CURL_FOUND)
+    message(STATUS "Found CURL: ${CURL_LIBRARIES}")
+else()
+    message(FATAL_ERROR "CURL library is required for data providers")
+endif()
+
+# WebSocketPP (header-only library)
+find_path(WEBSOCKETPP_INCLUDE_DIR
+    NAMES websocketpp/config/asio_no_tls.hpp
+    PATHS /usr/include /usr/local/include
+)
+if(WEBSOCKETPP_INCLUDE_DIR)
+    message(STATUS "Found WebSocketPP: ${WEBSOCKETPP_INCLUDE_DIR}")
+else()
+    message(WARNING "WebSocketPP not found, WebSocket functionality will be disabled")
 endif()
 
 # Optional CUDA support
@@ -59,7 +84,14 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/trading
     ${CMAKE_SOURCE_DIR}/include/utils
     ${TORCH_INCLUDE_DIRS}
+    ${CURL_INCLUDE_DIRS}
 )
+
+# Add WebSocketPP include directory if found
+if(WEBSOCKETPP_INCLUDE_DIR)
+    include_directories(${WEBSOCKETPP_INCLUDE_DIR})
+    add_definitions(-DUSE_WEBSOCKETPP)
+endif()
 
 # Preprocessor definitions
 add_definitions(-DTORCH_VERSION_MAJOR=${Torch_VERSION_MAJOR})
@@ -94,6 +126,7 @@ target_link_libraries(archneuronx
     Threads::Threads
     OpenSSL::SSL
     OpenSSL::Crypto
+    ${CURL_LIBRARIES}
 )
 
 # Add optional libraries
@@ -102,9 +135,13 @@ if(cpprestsdk_FOUND)
     add_definitions(-DUSE_CPPRESTSDK)
 endif()
 
-if(nlohmann_json_FOUND)
-    target_link_libraries(archneuronx nlohmann_json::nlohmann_json)
-    add_definitions(-DUSE_NLOHMANN_JSON)
+if(JSONCPP_FOUND)
+    target_link_libraries(archneuronx ${JSONCPP_LIBRARIES})
+    target_include_directories(archneuronx PRIVATE ${JSONCPP_INCLUDE_DIRS})
+    add_definitions(-DUSE_JSONCPP)
+elseif(jsoncpp_FOUND)
+    target_link_libraries(archneuronx ${JSONCPP_LIBRARIES})
+    add_definitions(-DUSE_JSONCPP)
 endif()
 
 # CUDA linking
@@ -145,12 +182,41 @@ target_link_libraries(archneuronx_lib
     Threads::Threads
     OpenSSL::SSL
     OpenSSL::Crypto
+    ${CURL_LIBRARIES}
 )
 
-# Testing
+# Add optional libraries to static lib
+if(JSONCPP_FOUND)
+    target_link_libraries(archneuronx_lib ${JSONCPP_LIBRARIES})
+elseif(jsoncpp_FOUND)
+    target_link_libraries(archneuronx_lib ${JSONCPP_LIBRARIES})
+endif()
+
+# Testing with Google Test
 enable_testing()
-if(EXISTS ${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt)
-    add_subdirectory(tests)
+find_package(GTest QUIET)
+if(GTest_FOUND AND EXISTS ${CMAKE_SOURCE_DIR}/tests/)
+    message(STATUS "Google Test found, enabling unit tests")
+    
+    # Test executables
+    file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
+    
+    add_executable(run_tests ${TEST_SOURCES})
+    target_link_libraries(run_tests 
+        archneuronx_lib
+        GTest::gtest 
+        GTest::gtest_main
+    )
+    
+    # Add tests
+    add_test(NAME CoreInfrastructureTests COMMAND run_tests)
+    
+    # Test properties
+    set_target_properties(run_tests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+    )
+else()
+    message(STATUS "Google Test not found, unit tests disabled")
 endif()
 
 # Documentation
@@ -172,6 +238,17 @@ install(DIRECTORY include/ DESTINATION include/archneuronx FILES_MATCHING PATTER
 install(DIRECTORY config/ DESTINATION share/archneuronx/config)
 install(FILES README.md LICENSE DESTINATION share/doc/archneuronx)
 
+# Development tools
+add_custom_target(format
+    COMMAND find ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/tests -name "*.cpp" -o -name "*.hpp" | xargs clang-format -i
+    COMMENT "Formatting source code"
+)
+
+add_custom_target(lint
+    COMMAND find ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy
+    COMMENT "Running static analysis"
+)
+
 # CPack configuration
 set(CPACK_PACKAGE_NAME "ArchNeuronX")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
@@ -179,3 +256,18 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Automated Neural Network Trading System")
 set(CPACK_PACKAGE_VENDOR "George Pricop")
 set(CPACK_GENERATOR "TGZ;ZIP")
 include(CPack)
+
+# Print configuration summary
+message(STATUS "")
+message(STATUS "ArchNeuronX Configuration Summary:")
+message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "  Torch version: ${Torch_VERSION}")
+message(STATUS "  CUDA support: ${CUDA_FOUND}")
+message(STATUS "  cpprestsdk: ${cpprestsdk_FOUND}")
+message(STATUS "  jsoncpp: ${JSONCPP_FOUND}")
+message(STATUS "  CURL: ${CURL_FOUND}")
+message(STATUS "  WebSocketPP: ${WEBSOCKETPP_INCLUDE_DIR}")
+message(STATUS "  Google Test: ${GTest_FOUND}")
+message(STATUS "  Doxygen: ${DOXYGEN_FOUND}")
+message(STATUS "")
