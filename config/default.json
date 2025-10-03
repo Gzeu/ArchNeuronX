@@ -1,0 +1,113 @@
+{
+  "app": {
+    "name": "ArchNeuronX",
+    "version": "1.0.0",
+    "environment": "development",
+    "debug_mode": true,
+    "max_threads": 4
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/archneuronx.log",
+    "max_file_size": 10485760,
+    "enable_console": true,
+    "enable_file": true,
+    "rotate_logs": true
+  },
+  "model": {
+    "type": "MLP",
+    "input_size": 50,
+    "output_size": 3,
+    "hidden_layers": [128, 64, 32],
+    "activation": "relu",
+    "dropout_rate": 0.2,
+    "use_batch_norm": true,
+    "use_gpu": true,
+    "mixed_precision": false
+  },
+  "training": {
+    "epochs": 100,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "optimizer": "adam",
+    "patience": 10,
+    "min_delta": 0.001,
+    "save_checkpoint_every": 10,
+    "validation_split": 0.2
+  },
+  "trading": {
+    "initial_capital": 10000.0,
+    "max_position_size": 0.1,
+    "max_daily_loss": 0.05,
+    "max_drawdown": 0.2,
+    "min_confidence": 0.7,
+    "use_stop_loss": true,
+    "use_take_profit": true,
+    "correlation_limit": 0.8,
+    "commission_rate": 0.001
+  },
+  "data": {
+    "symbols": ["BTCUSDT", "ETHUSDT", "ADAUSDT", "BNBUSDT", "XRPUSDT"],
+    "timeframe": "1h",
+    "lookback_period": 100,
+    "update_interval": 60,
+    "cache_size": 10000,
+    "technical_indicators": {
+      "rsi_period": 14,
+      "macd_fast": 12,
+      "macd_slow": 26,
+      "macd_signal": 9,
+      "bb_period": 20,
+      "bb_std": 2.0
+    }
+  },
+  "api": {
+    "binance": {
+      "base_url": "https://api.binance.com",
+      "api_key": "",
+      "secret_key": "",
+      "testnet": true,
+      "rate_limit": 1200
+    },
+    "alpha_vantage": {
+      "base_url": "https://www.alphavantage.co",
+      "api_key": "",
+      "rate_limit": 5
+    }
+  },
+  "rest_api": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "enable_cors": true,
+    "max_requests_per_minute": 1000,
+    "enable_websocket": true,
+    "ssl_enabled": false,
+    "cert_file": "",
+    "key_file": ""
+  },
+  "database": {
+    "type": "sqlite",
+    "path": "data/archneuronx.db",
+    "connection_pool_size": 10,
+    "timeout": 30000
+  },
+  "monitoring": {
+    "enable_metrics": true,
+    "metrics_port": 9090,
+    "health_check_interval": 30,
+    "alert_thresholds": {
+      "cpu_usage": 80.0,
+      "memory_usage": 85.0,
+      "disk_usage": 90.0,
+      "model_accuracy": 0.6
+    }
+  },
+  "docker": {
+    "image_name": "archneuronx",
+    "tag": "latest",
+    "enable_gpu": true,
+    "memory_limit": "4g",
+    "cpu_limit": "2.0"
+  }
+}
