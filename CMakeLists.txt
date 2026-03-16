@@ -26,6 +26,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         add_compile_options(-g -O0 -DDEBUG -fsanitize=address)
         add_link_options(-fsanitize=address)
     endif()
+    # Enable LTO for Release builds
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
@@ -48,6 +49,7 @@ find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
+# CUDA support
 if(USE_CUDA)
     find_package(CUDAToolkit REQUIRED)
     message(STATUS "CUDA version: ${CUDAToolkit_VERSION}")
@@ -57,16 +59,19 @@ if(USE_CUDA)
     set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -O3 --use_fast_math -arch=sm_80)
 endif()
 
+# HTTP client/server
 find_package(cpprestsdk QUIET)
 if(NOT cpprestsdk_FOUND)
     message(STATUS "cpprestsdk not found, using alternative HTTP implementation")
 endif()
 
+# WebSocket++ for real-time data
 find_package(websocketpp QUIET)
 if(NOT websocketpp_FOUND)
     message(STATUS "websocketpp not found, will use bundled header-only version")
 endif()
 
+# nlohmann/json for JSON handling
 find_package(nlohmann_json QUIET)
 if(NOT nlohmann_json_FOUND)
     include(FetchContent)
@@ -77,6 +82,7 @@ if(NOT nlohmann_json_FOUND)
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
+# spdlog for structured logging
 find_package(spdlog QUIET)
 if(NOT spdlog_FOUND)
     include(FetchContent)
@@ -235,6 +241,7 @@ if(BUILD_TESTS)
         spdlog::spdlog
         Threads::Threads
     )
+
     include(GoogleTest)
     gtest_discover_tests(archneuronx_tests)
 endif()
