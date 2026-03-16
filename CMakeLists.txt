@@ -1,273 +1,292 @@
-cmake_minimum_required(VERSION 3.18)
-project(ArchNeuronX VERSION 1.0.0 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.20)
+project(ArchNeuronX VERSION 2.0.0 LANGUAGES CXX CUDA)
 
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 17)
+# ============================================================
+# C++20 standard (upgrade from C++17)
+# ============================================================
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# CUDA standard
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # Build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Compiler-specific options
+# ============================================================
+# Compiler options
+# ============================================================
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -O3 -march=native)
+    add_compile_options(-Wall -Wextra -O3 -march=native -ffast-math)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(-g -O0 -DDEBUG)
+        add_compile_options(-g -O0 -DDEBUG -fsanitize=address)
+        add_link_options(-fsanitize=address)
+    endif()
+    # Enable LTO for Release builds
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
 endif()
 
+# ============================================================
+# Options
+# ============================================================
+option(USE_CUDA "Enable CUDA GPU acceleration" ON)
+option(BUILD_TESTS "Build unit tests" ON)
+option(BUILD_BENCHMARKS "Build performance benchmarks" ON)
+option(ENABLE_PROFILING "Enable CUDA profiling" OFF)
+option(USE_TENSORRT "Enable TensorRT optimization" OFF)
+
+# ============================================================
 # Find required packages
+# ============================================================
 find_package(Torch REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-# HTTP client/server libraries
+# CUDA support
+if(USE_CUDA)
+    find_package(CUDAToolkit REQUIRED)
+    message(STATUS "CUDA version: ${CUDAToolkit_VERSION}")
+    if(CUDAToolkit_VERSION VERSION_LESS "12.0")
+        message(WARNING "CUDA 12.0+ recommended, found ${CUDAToolkit_VERSION}")
+    endif()
+    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -O3 --use_fast_math -arch=sm_80)
+endif()
+
+# HTTP client/server
 find_package(cpprestsdk QUIET)
 if(NOT cpprestsdk_FOUND)
     message(STATUS "cpprestsdk not found, using alternative HTTP implementation")
 endif()
 
-# JSON processing
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(JSONCPP jsoncpp)
-if(NOT JSONCPP_FOUND)
-    find_package(jsoncpp QUIET)
-    if(jsoncpp_FOUND)
-        set(JSONCPP_LIBRARIES jsoncpp_lib)
+# WebSocket++ for real-time data
+find_package(websocketpp QUIET)
+if(NOT websocketpp_FOUND)
+    message(STATUS "websocketpp not found, will use bundled header-only version")
+endif()
+
+# nlohmann/json for JSON handling
+find_package(nlohmann_json QUIET)
+if(NOT nlohmann_json_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        nlohmann_json
+        URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
+
+# spdlog for structured logging
+find_package(spdlog QUIET)
+if(NOT spdlog_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.13.0
+    )
+    FetchContent_MakeAvailable(spdlog)
+endif()
+
+# Prometheus C++ client for metrics
+find_package(prometheus-cpp QUIET)
+
+# cURL for HTTP requests
+find_package(CURL REQUIRED)
+
+# Boost for various utilities
+find_package(Boost REQUIRED COMPONENTS system filesystem program_options)
+
+# ============================================================
+# Source files
+# ============================================================
+set(CORE_SOURCES
+    src/core/trading_engine.cpp
+    src/core/signal_generator.cpp
+    src/core/order_manager.cpp
+    src/core/risk_manager.cpp
+    src/core/portfolio_manager.cpp
+    src/core/market_regime_detector.cpp
+    src/core/ensemble_manager.cpp
+)
+
+set(MODEL_SOURCES
+    src/models/mlp_model.cpp
+    src/models/cnn_model.cpp
+    src/models/transformer_model.cpp
+    src/models/temporal_fusion_transformer.cpp
+    src/models/model_factory.cpp
+    src/models/online_learner.cpp
+)
+
+set(DATA_SOURCES
+    src/data/data_manager.cpp
+    src/data/market_data_feed.cpp
+    src/data/preprocessor.cpp
+    src/data/technical_indicators.cpp
+    src/data/feature_engineer.cpp
+    src/data/websocket_feed.cpp
+)
+
+set(API_SOURCES
+    src/api/rest_server.cpp
+    src/api/predict_handler.cpp
+    src/api/train_handler.cpp
+    src/api/backtest_handler.cpp
+    src/api/portfolio_handler.cpp
+    src/api/websocket_handler.cpp
+    src/api/auth_middleware.cpp
+    src/api/rate_limiter.cpp
+)
+
+set(UTILS_SOURCES
+    src/utils/logger.cpp
+    src/utils/metrics.cpp
+    src/utils/config_parser.cpp
+    src/utils/cuda_utils.cpp
+    src/utils/math_utils.cpp
+    src/utils/prometheus_exporter.cpp
+)
+
+set(ALL_SOURCES
+    ${CORE_SOURCES}
+    ${MODEL_SOURCES}
+    ${DATA_SOURCES}
+    ${API_SOURCES}
+    ${UTILS_SOURCES}
+    src/main.cpp
+)
+
+# ============================================================
+# Main executable
+# ============================================================
+add_executable(archneuronx ${ALL_SOURCES})
+
+target_include_directories(archneuronx PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${TORCH_INCLUDE_DIRS}
+    ${CURL_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+target_link_libraries(archneuronx PRIVATE
+    ${TORCH_LIBRARIES}
+    ${CURL_LIBRARIES}
+    ${Boost_LIBRARIES}
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+    nlohmann_json::nlohmann_json
+    spdlog::spdlog
+)
+
+if(USE_CUDA)
+    target_link_libraries(archneuronx PRIVATE CUDA::cudart CUDA::cublas CUDA::curand)
+    target_compile_definitions(archneuronx PRIVATE USE_CUDA=1)
+endif()
+
+if(prometheus-cpp_FOUND)
+    target_link_libraries(archneuronx PRIVATE prometheus-cpp::core prometheus-cpp::pull)
+    target_compile_definitions(archneuronx PRIVATE USE_PROMETHEUS=1)
+endif()
+
+# C++20 features
+target_compile_features(archneuronx PRIVATE cxx_std_20)
+
+# ============================================================
+# Tests
+# ============================================================
+if(BUILD_TESTS)
+    enable_testing()
+    find_package(GTest REQUIRED)
+
+    set(TEST_SOURCES
+        tests/unit/test_technical_indicators.cpp
+        tests/unit/test_risk_manager.cpp
+        tests/unit/test_signal_generator.cpp
+        tests/unit/test_data_preprocessor.cpp
+        tests/unit/test_transformer_model.cpp
+        tests/unit/test_portfolio_manager.cpp
+        tests/integration/test_pipeline.cpp
+        tests/integration/test_api_endpoints.cpp
+        tests/performance/test_inference_latency.cpp
+    )
+
+    add_executable(archneuronx_tests ${TEST_SOURCES})
+    target_include_directories(archneuronx_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${TORCH_INCLUDE_DIRS}
+        ${Boost_INCLUDE_DIRS}
+    )
+    target_link_libraries(archneuronx_tests PRIVATE
+        GTest::gtest_main
+        GTest::gmock
+        ${TORCH_LIBRARIES}
+        ${Boost_LIBRARIES}
+        nlohmann_json::nlohmann_json
+        spdlog::spdlog
+        Threads::Threads
+    )
+
+    include(GoogleTest)
+    gtest_discover_tests(archneuronx_tests)
+endif()
+
+# ============================================================
+# Benchmarks
+# ============================================================
+if(BUILD_BENCHMARKS)
+    find_package(benchmark QUIET)
+    if(benchmark_FOUND)
+        add_executable(archneuronx_bench
+            benchmarks/bench_inference.cpp
+            benchmarks/bench_indicators.cpp
+            benchmarks/bench_pipeline.cpp
+        )
+        target_include_directories(archneuronx_bench PRIVATE
+            ${CMAKE_SOURCE_DIR}/include
+            ${TORCH_INCLUDE_DIRS}
+        )
+        target_link_libraries(archneuronx_bench PRIVATE
+            benchmark::benchmark
+            ${TORCH_LIBRARIES}
+            nlohmann_json::nlohmann_json
+            spdlog::spdlog
+            Threads::Threads
+        )
     else()
-        message(STATUS "jsoncpp not found, will use bundled version")
+        message(STATUS "Google Benchmark not found, skipping benchmarks")
     endif()
 endif()
 
-# CURL for HTTP requests
-find_package(CURL REQUIRED)
-if(CURL_FOUND)
-    message(STATUS "Found CURL: ${CURL_LIBRARIES}")
-else()
-    message(FATAL_ERROR "CURL library is required for data providers")
-endif()
-
-# WebSocketPP (header-only library)
-find_path(WEBSOCKETPP_INCLUDE_DIR
-    NAMES websocketpp/config/asio_no_tls.hpp
-    PATHS /usr/include /usr/local/include
-)
-if(WEBSOCKETPP_INCLUDE_DIR)
-    message(STATUS "Found WebSocketPP: ${WEBSOCKETPP_INCLUDE_DIR}")
-else()
-    message(WARNING "WebSocketPP not found, WebSocket functionality will be disabled")
-endif()
-
-# Optional CUDA support
-find_package(CUDA QUIET)
-if(CUDA_FOUND)
-    enable_language(CUDA)
-    add_definitions(-DUSE_CUDA)
-    set(CMAKE_CUDA_STANDARD 17)
-    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-    message(STATUS "CUDA support enabled")
-else()
-    message(STATUS "CUDA not found, building CPU-only version")
-endif()
-
-# Include directories
-include_directories(
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include/core
-    ${CMAKE_SOURCE_DIR}/include/api
-    ${CMAKE_SOURCE_DIR}/include/models
-    ${CMAKE_SOURCE_DIR}/include/data
-    ${CMAKE_SOURCE_DIR}/include/trading
-    ${CMAKE_SOURCE_DIR}/include/utils
-    ${TORCH_INCLUDE_DIRS}
-    ${CURL_INCLUDE_DIRS}
-)
-
-# Add WebSocketPP include directory if found
-if(WEBSOCKETPP_INCLUDE_DIR)
-    include_directories(${WEBSOCKETPP_INCLUDE_DIR})
-    add_definitions(-DUSE_WEBSOCKETPP)
-endif()
-
-# Preprocessor definitions
-add_definitions(-DTORCH_VERSION_MAJOR=${Torch_VERSION_MAJOR})
-add_definitions(-DTORCH_VERSION_MINOR=${Torch_VERSION_MINOR})
-
-# Source files organization
-file(GLOB_RECURSE CORE_SOURCES "src/core/*.cpp")
-file(GLOB_RECURSE API_SOURCES "src/api/*.cpp")
-file(GLOB_RECURSE MODEL_SOURCES "src/models/*.cpp")
-file(GLOB_RECURSE DATA_SOURCES "src/data/*.cpp")
-file(GLOB_RECURSE TRADING_SOURCES "src/trading/*.cpp")
-file(GLOB_RECURSE UTILS_SOURCES "src/utils/*.cpp")
-file(GLOB MAIN_SOURCE "src/main.cpp")
-
-file(GLOB_RECURSE ALL_HEADERS "include/*.h" "include/*.hpp")
-
-# Create main executable
-add_executable(archneuronx 
-    ${MAIN_SOURCE}
-    ${CORE_SOURCES}
-    ${API_SOURCES}
-    ${MODEL_SOURCES}
-    ${DATA_SOURCES}
-    ${TRADING_SOURCES}
-    ${UTILS_SOURCES}
-    ${ALL_HEADERS}
-)
-
-# Link libraries
-target_link_libraries(archneuronx 
-    ${TORCH_LIBRARIES}
-    Threads::Threads
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    ${CURL_LIBRARIES}
-)
-
-# Add optional libraries
-if(cpprestsdk_FOUND)
-    target_link_libraries(archneuronx cpprestsdk::cpprest)
-    add_definitions(-DUSE_CPPRESTSDK)
-endif()
-
-if(JSONCPP_FOUND)
-    target_link_libraries(archneuronx ${JSONCPP_LIBRARIES})
-    target_include_directories(archneuronx PRIVATE ${JSONCPP_INCLUDE_DIRS})
-    add_definitions(-DUSE_JSONCPP)
-elseif(jsoncpp_FOUND)
-    target_link_libraries(archneuronx ${JSONCPP_LIBRARIES})
-    add_definitions(-DUSE_JSONCPP)
-endif()
-
-# CUDA linking
-if(CUDA_FOUND)
-    target_link_libraries(archneuronx ${CUDA_LIBRARIES})
-endif()
-
-# Set properties
-set_property(TARGET archneuronx PROPERTY CXX_STANDARD 17)
-set_target_properties(archneuronx PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-)
-
-# Copy torch dlls if on windows
-if(MSVC)
-    file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
-    add_custom_command(TARGET archneuronx
-                       POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                       ${TORCH_DLLS}
-                       $<TARGET_FILE_DIR:archneuronx>)
-endif(MSVC)
-
-# Create separate library for reusable components
-add_library(archneuronx_lib STATIC
-    ${CORE_SOURCES}
-    ${API_SOURCES}
-    ${MODEL_SOURCES}
-    ${DATA_SOURCES}
-    ${TRADING_SOURCES}
-    ${UTILS_SOURCES}
-)
-
-target_link_libraries(archneuronx_lib 
-    ${TORCH_LIBRARIES}
-    Threads::Threads
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    ${CURL_LIBRARIES}
-)
-
-# Add optional libraries to static lib
-if(JSONCPP_FOUND)
-    target_link_libraries(archneuronx_lib ${JSONCPP_LIBRARIES})
-elseif(jsoncpp_FOUND)
-    target_link_libraries(archneuronx_lib ${JSONCPP_LIBRARIES})
-endif()
-
-# Testing with Google Test
-enable_testing()
-find_package(GTest QUIET)
-if(GTest_FOUND AND EXISTS ${CMAKE_SOURCE_DIR}/tests/)
-    message(STATUS "Google Test found, enabling unit tests")
-    
-    # Test executables
-    file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
-    
-    add_executable(run_tests ${TEST_SOURCES})
-    target_link_libraries(run_tests 
-        archneuronx_lib
-        GTest::gtest 
-        GTest::gtest_main
-    )
-    
-    # Add tests
-    add_test(NAME CoreInfrastructureTests COMMAND run_tests)
-    
-    # Test properties
-    set_target_properties(run_tests PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
-    )
-else()
-    message(STATUS "Google Test not found, unit tests disabled")
-endif()
-
-# Documentation
-find_package(Doxygen QUIET)
-if(DOXYGEN_FOUND)
-    configure_file(${CMAKE_SOURCE_DIR}/docs/Doxyfile.in ${CMAKE_BINARY_DIR}/Doxyfile @ONLY)
-    add_custom_target(docs
-        ${DOXYGEN_EXECUTABLE} ${CMAKE_BINARY_DIR}/Doxyfile
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        COMMENT "Generating API documentation with Doxygen"
-        VERBATIM
-    )
-endif()
-
+# ============================================================
 # Install targets
+# ============================================================
 install(TARGETS archneuronx DESTINATION bin)
-install(TARGETS archneuronx_lib DESTINATION lib)
-install(DIRECTORY include/ DESTINATION include/archneuronx FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
-install(DIRECTORY config/ DESTINATION share/archneuronx/config)
-install(FILES README.md LICENSE DESTINATION share/doc/archneuronx)
+install(DIRECTORY include/ DESTINATION include/archneuronx)
+install(DIRECTORY config/ DESTINATION etc/archneuronx)
 
-# Development tools
-add_custom_target(format
-    COMMAND find ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/tests -name "*.cpp" -o -name "*.hpp" | xargs clang-format -i
-    COMMENT "Formatting source code"
-)
-
-add_custom_target(lint
-    COMMAND find ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy
-    COMMENT "Running static analysis"
-)
-
-# CPack configuration
-set(CPACK_PACKAGE_NAME "ArchNeuronX")
-set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Automated Neural Network Trading System")
-set(CPACK_PACKAGE_VENDOR "George Pricop")
-set(CPACK_GENERATOR "TGZ;ZIP")
+# ============================================================
+# Package configuration
+# ============================================================
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+set(CPACK_GENERATOR "DEB;TGZ")
 include(CPack)
 
-# Print configuration summary
 message(STATUS "")
-message(STATUS "ArchNeuronX Configuration Summary:")
-message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
-message(STATUS "  Torch version: ${Torch_VERSION}")
-message(STATUS "  CUDA support: ${CUDA_FOUND}")
-message(STATUS "  cpprestsdk: ${cpprestsdk_FOUND}")
-message(STATUS "  jsoncpp: ${JSONCPP_FOUND}")
-message(STATUS "  CURL: ${CURL_FOUND}")
-message(STATUS "  WebSocketPP: ${WEBSOCKETPP_INCLUDE_DIR}")
-message(STATUS "  Google Test: ${GTest_FOUND}")
-message(STATUS "  Doxygen: ${DOXYGEN_FOUND}")
+message(STATUS "ArchNeuronX v${PROJECT_VERSION} configuration:")
+message(STATUS "  C++ standard  : C++20")
+message(STATUS "  Build type    : ${CMAKE_BUILD_TYPE}")
+message(STATUS "  CUDA support  : ${USE_CUDA}")
+message(STATUS "  Tests         : ${BUILD_TESTS}")
+message(STATUS "  Benchmarks    : ${BUILD_BENCHMARKS}")
+message(STATUS "  LibTorch      : ${Torch_VERSION}")
 message(STATUS "")
