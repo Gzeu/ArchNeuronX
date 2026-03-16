@@ -1,0 +1,227 @@
+# ============================================================
+# ArchNeuronX v2 - Kubernetes Deployment
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archneuronx
+  namespace: trading
+  labels:
+    app: archneuronx
+    version: "2.0.0"
+    component: trading-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: archneuronx
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0  # Zero-downtime deployment
+  template:
+    metadata:
+      labels:
+        app: archneuronx
+        version: "2.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      # GPU node affinity
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: nvidia.com/gpu
+                    operator: Exists
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: archneuronx
+          image: gzeu/archneuronx:2.0.0
+          imagePullPolicy: Always
+
+          # GPU resources
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "8Gi"
+              cpu: "4"
+              nvidia.com/gpu: "1"
+
+          ports:
+            - name: api
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            - name: websocket
+              containerPort: 8081
+              protocol: TCP
+
+          env:
+            - name: ARCHNEURONX_LOG_LEVEL
+              value: "info"
+            - name: ARCHNEURONX_CONFIG
+              value: "/etc/archneuronx/config"
+            - name: ARCHNEURONX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: archneuronx-secrets
+                  key: api-key
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+            - name: OMP_NUM_THREADS
+              value: "4"
+
+          volumeMounts:
+            - name: config
+              mountPath: /etc/archneuronx/config
+              readOnly: true
+            - name: models
+              mountPath: /app/models
+            - name: data
+              mountPath: /app/data
+
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: api
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          # Readiness probe
+          readinessProbe:
+            httpGet:
+              path: /api/v1/ready
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Startup probe (for slow GPU init)
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: api
+            failureThreshold: 30
+            periodSeconds: 10
+
+      volumes:
+        - name: config
+          configMap:
+            name: archneuronx-config
+        - name: models
+          persistentVolumeClaim:
+            claimName: archneuronx-models-pvc
+        - name: data
+          emptyDir:
+            sizeLimit: 10Gi
+
+---
+# ============================================================
+# Service
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: archneuronx
+  namespace: trading
+  labels:
+    app: archneuronx
+spec:
+  selector:
+    app: archneuronx
+  ports:
+    - name: api
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+    - name: websocket
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+  type: ClusterIP
+
+---
+# ============================================================
+# HorizontalPodAutoscaler
+# ============================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: archneuronx-hpa
+  namespace: trading
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: archneuronx
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# ============================================================
+# PodDisruptionBudget (ensures availability)
+# ============================================================
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: archneuronx-pdb
+  namespace: trading
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: archneuronx
+
+---
+# ============================================================
+# Namespace
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading
+  labels:
+    name: trading
+    monitoring: "true"
