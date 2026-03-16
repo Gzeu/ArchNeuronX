@@ -1,331 +1,226 @@
 /**
  * @file technical_indicators.hpp
- * @brief Technical analysis indicators library for ArchNeuronX
- * @author George Pricop
- * @date 2025-10-02
+ * @brief Technical Indicators v2 - LibTorch GPU-Accelerated
+ * @version 2.0.0
+ * @date 2026-03-16
+ *
+ * RSI, MACD, Bollinger Bands, ATR, OBV, VWAP, Stochastic,
+ * Williams %R, CCI, EMA, SMA - all computed on LibTorch tensors
+ * for seamless GPU acceleration.
  */
 
 #pragma once
 
+#include <torch/torch.h>
 #include <vector>
 #include <optional>
 #include <cmath>
-#include <algorithm>
-#include <numeric>
-#include "market_data.hpp"
+#include <stdexcept>
 
 namespace ArchNeuronX {
 namespace Data {
 namespace Indicators {
 
-/**
- * @class TechnicalAnalysis
- * @brief Comprehensive technical analysis indicators calculator
- */
-class TechnicalAnalysis {
-public:
-    /**
-     * @brief Calculate Simple Moving Average (SMA)
-     * @param prices Vector of prices
-     * @param period Moving average period
-     * @return Vector of SMA values
-     */
-    static std::vector<double> calculateSMA(const std::vector<double>& prices, int period);
-    
-    /**
-     * @brief Calculate Exponential Moving Average (EMA)
-     * @param prices Vector of prices
-     * @param period Moving average period
-     * @param smoothing_factor Smoothing factor (default: 2.0)
-     * @return Vector of EMA values
-     */
-    static std::vector<double> calculateEMA(const std::vector<double>& prices, 
-                                           int period, 
-                                           double smoothing_factor = 2.0);
-    
-    /**
-     * @brief Calculate Weighted Moving Average (WMA)
-     * @param prices Vector of prices
-     * @param period Moving average period
-     * @return Vector of WMA values
-     */
-    static std::vector<double> calculateWMA(const std::vector<double>& prices, int period);
-    
-    /**
-     * @brief Calculate Relative Strength Index (RSI)
-     * @param prices Vector of prices
-     * @param period RSI period (default: 14)
-     * @return Vector of RSI values (0-100)
-     */
-    static std::vector<double> calculateRSI(const std::vector<double>& prices, int period = 14);
-    
-    /**
-     * @brief Calculate MACD (Moving Average Convergence Divergence)
-     * @param prices Vector of prices
-     * @param fast_period Fast EMA period (default: 12)
-     * @param slow_period Slow EMA period (default: 26)
-     * @param signal_period Signal line period (default: 9)
-     * @return Tuple of (MACD line, Signal line, Histogram)
-     */
-    static std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> 
-        calculateMACD(const std::vector<double>& prices, 
-                     int fast_period = 12, 
-                     int slow_period = 26, 
-                     int signal_period = 9);
-    
-    /**
-     * @brief Calculate Bollinger Bands
-     * @param prices Vector of prices
-     * @param period Moving average period (default: 20)
-     * @param std_dev Standard deviations (default: 2.0)
-     * @return Tuple of (Upper band, Middle band, Lower band)
-     */
-    static std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
-        calculateBollingerBands(const std::vector<double>& prices,
-                               int period = 20,
-                               double std_dev = 2.0);
-    
-    /**
-     * @brief Calculate Stochastic Oscillator
-     * @param highs Vector of high prices
-     * @param lows Vector of low prices
-     * @param closes Vector of close prices
-     * @param k_period %K period (default: 14)
-     * @param d_period %D period (default: 3)
-     * @return Tuple of (%K values, %D values)
-     */
-    static std::tuple<std::vector<double>, std::vector<double>>
-        calculateStochastic(const std::vector<double>& highs,
-                           const std::vector<double>& lows,
-                           const std::vector<double>& closes,
-                           int k_period = 14,
-                           int d_period = 3);
-    
-    /**
-     * @brief Calculate Average True Range (ATR)
-     * @param highs Vector of high prices
-     * @param lows Vector of low prices
-     * @param closes Vector of close prices
-     * @param period ATR period (default: 14)
-     * @return Vector of ATR values
-     */
-    static std::vector<double> calculateATR(const std::vector<double>& highs,
-                                           const std::vector<double>& lows,
-                                           const std::vector<double>& closes,
-                                           int period = 14);
-    
-    /**
-     * @brief Calculate Commodity Channel Index (CCI)
-     * @param highs Vector of high prices
-     * @param lows Vector of low prices
-     * @param closes Vector of close prices
-     * @param period CCI period (default: 20)
-     * @return Vector of CCI values
-     */
-    static std::vector<double> calculateCCI(const std::vector<double>& highs,
-                                           const std::vector<double>& lows,
-                                           const std::vector<double>& closes,
-                                           int period = 20);
-    
-    /**
-     * @brief Calculate Williams %R
-     * @param highs Vector of high prices
-     * @param lows Vector of low prices
-     * @param closes Vector of close prices
-     * @param period Williams %R period (default: 14)
-     * @return Vector of Williams %R values
-     */
-    static std::vector<double> calculateWilliamsR(const std::vector<double>& highs,
-                                                  const std::vector<double>& lows,
-                                                  const std::vector<double>& closes,
-                                                  int period = 14);
-    
-    /**
-     * @brief Calculate Volume Weighted Average Price (VWAP)
-     * @param prices Vector of typical prices (HLC/3)
-     * @param volumes Vector of volumes
-     * @return Vector of VWAP values
-     */
-    static std::vector<double> calculateVWAP(const std::vector<double>& prices,
-                                            const std::vector<double>& volumes);
-    
-    /**
-     * @brief Calculate Money Flow Index (MFI)
-     * @param highs Vector of high prices
-     * @param lows Vector of low prices
-     * @param closes Vector of close prices
-     * @param volumes Vector of volumes
-     * @param period MFI period (default: 14)
-     * @return Vector of MFI values
-     */
-    static std::vector<double> calculateMFI(const std::vector<double>& highs,
-                                           const std::vector<double>& lows,
-                                           const std::vector<double>& closes,
-                                           const std::vector<double>& volumes,
-                                           int period = 14);
-    
-    /**
-     * @brief Calculate Parabolic SAR
-     * @param highs Vector of high prices
-     * @param lows Vector of low prices
-     * @param initial_af Initial acceleration factor (default: 0.02)
-     * @param max_af Maximum acceleration factor (default: 0.20)
-     * @return Vector of Parabolic SAR values
-     */
-    static std::vector<double> calculateParabolicSAR(const std::vector<double>& highs,
-                                                     const std::vector<double>& lows,
-                                                     double initial_af = 0.02,
-                                                     double max_af = 0.20);
-    
-    /**
-     * @brief Calculate Ichimoku Cloud components
-     * @param highs Vector of high prices
-     * @param lows Vector of low prices
-     * @param closes Vector of close prices
-     * @param tenkan_period Tenkan-sen period (default: 9)
-     * @param kijun_period Kijun-sen period (default: 26)
-     * @param senkou_period Senkou span B period (default: 52)
-     * @return Tuple of (Tenkan-sen, Kijun-sen, Senkou Span A, Senkou Span B, Chikou Span)
-     */
-    static std::tuple<std::vector<double>, std::vector<double>, std::vector<double>, 
-                      std::vector<double>, std::vector<double>>
-        calculateIchimoku(const std::vector<double>& highs,
-                         const std::vector<double>& lows,
-                         const std::vector<double>& closes,
-                         int tenkan_period = 9,
-                         int kijun_period = 26,
-                         int senkou_period = 52);
-    
-    /**
-     * @brief Calculate all technical indicators for OHLCV data
-     * @param ohlcv_data Vector of OHLCV candlestick data
-     * @return Vector of TechnicalIndicators structures
-     */
-    static std::vector<TechnicalIndicators> calculateAllIndicators(
-        const std::vector<OHLCV>& ohlcv_data);
-    
-    /**
-     * @brief Calculate volatility (standard deviation of returns)
-     * @param prices Vector of prices
-     * @param period Volatility calculation period
-     * @return Vector of volatility values
-     */
-    static std::vector<double> calculateVolatility(const std::vector<double>& prices,
-                                                  int period = 20);
-    
-    /**
-     * @brief Calculate price returns
-     * @param prices Vector of prices
-     * @param logarithmic Use logarithmic returns (default: true)
-     * @return Vector of returns
-     */
-    static std::vector<double> calculateReturns(const std::vector<double>& prices,
-                                               bool logarithmic = true);
-    
-    /**
-     * @brief Calculate correlation between two price series
-     * @param prices1 First price series
-     * @param prices2 Second price series
-     * @param period Correlation calculation period
-     * @return Vector of correlation values
-     */
-    static std::vector<double> calculateCorrelation(const std::vector<double>& prices1,
-                                                   const std::vector<double>& prices2,
-                                                   int period = 20);
-    
-    /**
-     * @brief Detect price patterns
-     * @param ohlcv_data Vector of OHLCV data
-     * @return Vector of pattern names detected
-     */
-    static std::vector<std::string> detectPatterns(const std::vector<OHLCV>& ohlcv_data);
-    
-private:
-    /**
-     * @brief Calculate standard deviation
-     * @param values Vector of values
-     * @param mean Mean of the values
-     * @return Standard deviation
-     */
-    static double calculateStdDev(const std::vector<double>& values, double mean);
-    
-    /**
-     * @brief Calculate mean of a vector
-     * @param values Vector of values
-     * @return Mean value
-     */
-    static double calculateMean(const std::vector<double>& values);
-    
-    /**
-     * @brief Find maximum value in range
-     * @param values Vector of values
-     * @param start Start index
-     * @param end End index
-     * @return Maximum value
-     */
-    static double findMax(const std::vector<double>& values, size_t start, size_t end);
-    
-    /**
-     * @brief Find minimum value in range
-     * @param values Vector of values
-     * @param start Start index
-     * @param end End index
-     * @return Minimum value
-     */
-    static double findMin(const std::vector<double>& values, size_t start, size_t end);
-    
-    /**
-     * @brief Check if a candlestick is bullish
-     * @param candle OHLCV candlestick
-     * @return True if bullish (close > open)
-     */
-    static bool isBullish(const OHLCV& candle);
-    
-    /**
-     * @brief Check if a candlestick is bearish
-     * @param candle OHLCV candlestick
-     * @return True if bearish (close < open)
-     */
-    static bool isBearish(const OHLCV& candle);
-    
-    /**
-     * @brief Calculate candlestick body size
-     * @param candle OHLCV candlestick
-     * @return Body size as percentage of total range
-     */
-    static double getBodySize(const OHLCV& candle);
-    
-    /**
-     * @brief Check for doji pattern
-     * @param candle OHLCV candlestick
-     * @param threshold Doji threshold (default: 0.1%)
-     * @return True if doji pattern
-     */
-    static bool isDoji(const OHLCV& candle, double threshold = 0.001);
+// ============================================================
+// Return types
+// ============================================================
+struct MACDResult {
+    torch::Tensor macd_line;
+    torch::Tensor signal_line;
+    torch::Tensor histogram;
 };
 
-/**
- * @brief Helper function to extract price series from OHLCV data
- * @param ohlcv_data Vector of OHLCV data
- * @param price_type Price type ("open", "high", "low", "close")
- * @return Vector of prices
- */
-std::vector<double> extractPrices(const std::vector<OHLCV>& ohlcv_data,
-                                 const std::string& price_type);
+struct BollingerBands {
+    torch::Tensor upper;
+    torch::Tensor middle;
+    torch::Tensor lower;
+    torch::Tensor bandwidth;   // (upper - lower) / middle
+    torch::Tensor percent_b;   // (price - lower) / (upper - lower)
+};
 
-/**
- * @brief Extract volumes from OHLCV data
- * @param ohlcv_data Vector of OHLCV data
- * @return Vector of volumes
- */
-std::vector<double> extractVolumes(const std::vector<OHLCV>& ohlcv_data);
+struct Stochastic {
+    torch::Tensor k;  // %K fast
+    torch::Tensor d;  // %D smoothed
+};
 
-/**
- * @brief Calculate typical prices (HLC/3) from OHLCV data
- * @param ohlcv_data Vector of OHLCV data
- * @return Vector of typical prices
- */
-std::vector<double> calculateTypicalPrices(const std::vector<OHLCV>& ohlcv_data);
+struct FeatureMatrix {
+    torch::Tensor features;    // [T, F] tensor for model input
+    std::vector<std::string> feature_names;
+};
+
+// ============================================================
+// TechnicalAnalysis class - all methods static, GPU-friendly
+// ============================================================
+class TechnicalAnalysis {
+public:
+    // ------- Moving Averages --------------------------------
+
+    /** Simple Moving Average */
+    static torch::Tensor sma(const torch::Tensor& prices, int period);
+
+    /** Exponential Moving Average (Wilder's smoothing) */
+    static torch::Tensor ema(const torch::Tensor& prices, int period);
+
+    /** Weighted Moving Average */
+    static torch::Tensor wma(const torch::Tensor& prices, int period);
+
+    // ------- Momentum Indicators ---------------------------
+
+    /**
+     * @brief Relative Strength Index
+     * @param prices  Close prices tensor [T]
+     * @param period  Look-back (default 14)
+     * @return RSI values in [0, 100]
+     */
+    static torch::Tensor rsi(const torch::Tensor& prices, int period = 14);
+
+    /**
+     * @brief MACD - Moving Average Convergence/Divergence
+     * @param prices    Close prices [T]
+     * @param fast      Fast EMA period (default 12)
+     * @param slow      Slow EMA period (default 26)
+     * @param signal_p  Signal line period (default 9)
+     */
+    static MACDResult macd(const torch::Tensor& prices,
+                           int fast = 12, int slow = 26, int signal_p = 9);
+
+    /**
+     * @brief Stochastic Oscillator %K / %D
+     * @param high      High prices [T]
+     * @param low       Low prices [T]
+     * @param close     Close prices [T]
+     * @param k_period  %K look-back (default 14)
+     * @param d_period  %D smoothing (default 3)
+     */
+    static Stochastic stochastic(const torch::Tensor& high,
+                                 const torch::Tensor& low,
+                                 const torch::Tensor& close,
+                                 int k_period = 14, int d_period = 3);
+
+    /** Williams %R - overbought/oversold */
+    static torch::Tensor williams_r(const torch::Tensor& high,
+                                    const torch::Tensor& low,
+                                    const torch::Tensor& close,
+                                    int period = 14);
+
+    /** Rate of Change (ROC) momentum */
+    static torch::Tensor roc(const torch::Tensor& prices, int period = 10);
+
+    // ------- Volatility Indicators -------------------------
+
+    /**
+     * @brief Bollinger Bands
+     * @param prices   Close prices [T]
+     * @param period   MA period (default 20)
+     * @param num_std  Standard deviation multiplier (default 2.0)
+     */
+    static BollingerBands bollinger_bands(const torch::Tensor& prices,
+                                          int period = 20,
+                                          double num_std = 2.0);
+
+    /**
+     * @brief Average True Range - measures volatility
+     * @param high    High prices [T]
+     * @param low     Low prices [T]
+     * @param close   Close prices [T]
+     * @param period  ATR period (default 14)
+     */
+    static torch::Tensor atr(const torch::Tensor& high,
+                             const torch::Tensor& low,
+                             const torch::Tensor& close,
+                             int period = 14);
+
+    /** Historical Volatility (annualized) */
+    static torch::Tensor historical_volatility(const torch::Tensor& prices,
+                                               int period = 20);
+
+    // ------- Volume Indicators -----------------------------
+
+    /** On-Balance Volume */
+    static torch::Tensor obv(const torch::Tensor& close,
+                             const torch::Tensor& volume);
+
+    /**
+     * @brief Volume-Weighted Average Price
+     * @param period  0 = session cumulative VWAP
+     */
+    static torch::Tensor vwap(const torch::Tensor& high,
+                              const torch::Tensor& low,
+                              const torch::Tensor& close,
+                              const torch::Tensor& volume,
+                              int period = 0);
+
+    /** Accumulation/Distribution Line */
+    static torch::Tensor adl(const torch::Tensor& high,
+                             const torch::Tensor& low,
+                             const torch::Tensor& close,
+                             const torch::Tensor& volume);
+
+    /** Chaikin Money Flow */
+    static torch::Tensor cmf(const torch::Tensor& high,
+                             const torch::Tensor& low,
+                             const torch::Tensor& close,
+                             const torch::Tensor& volume,
+                             int period = 20);
+
+    // ------- Trend Indicators ------------------------------
+
+    /** Commodity Channel Index */
+    static torch::Tensor cci(const torch::Tensor& high,
+                             const torch::Tensor& low,
+                             const torch::Tensor& close,
+                             int period = 20);
+
+    /** Average Directional Index (ADX) */
+    static torch::Tensor adx(const torch::Tensor& high,
+                             const torch::Tensor& low,
+                             const torch::Tensor& close,
+                             int period = 14);
+
+    // ------- Feature Engineering ---------------------------
+
+    /**
+     * @brief Compute complete feature matrix for model input
+     *
+     * Produces a [T, 30+] tensor with all technical features
+     * normalized and ready for Transformer/CNN/MLP models.
+     *
+     * Features: OHLCV + SMA(5,10,20,50) + EMA(12,26) +
+     *           RSI(14) + MACD + BB(20) + ATR(14) +
+     *           OBV + VWAP + Stochastic + Williams%R + CCI
+     *
+     * @param open    Open prices [T]
+     * @param high    High prices [T]
+     * @param low     Low prices [T]
+     * @param close   Close prices [T]
+     * @param volume  Volume [T]
+     * @param normalize  Apply z-score normalization (default true)
+     * @return FeatureMatrix with [T, F] tensor + feature names
+     */
+    static FeatureMatrix compute_feature_matrix(
+        const torch::Tensor& open,
+        const torch::Tensor& high,
+        const torch::Tensor& low,
+        const torch::Tensor& close,
+        const torch::Tensor& volume,
+        bool normalize = true);
+
+private:
+    /** Wilder's smoothing (used in RSI, ATR) */
+    static torch::Tensor wilder_smooth(const torch::Tensor& data, int period);
+
+    /** Rolling max over window */
+    static torch::Tensor rolling_max(const torch::Tensor& data, int window);
+
+    /** Rolling min over window */
+    static torch::Tensor rolling_min(const torch::Tensor& data, int window);
+
+    /** Rolling mean over window */
+    static torch::Tensor rolling_mean(const torch::Tensor& data, int window);
+
+    /** Rolling std over window */
+    static torch::Tensor rolling_std(const torch::Tensor& data, int window);
+};
 
 } // namespace Indicators
 } // namespace Data
