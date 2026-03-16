@@ -1,76 +1,11 @@
 # ArchNeuronX v2.0 - Automated Neural Network Trading System
 
-[![CI/CD Pipeline](https://github.com/Gzeu/ArchNeuronX/actions/workflows/ci.yml/badge.svg)](https://github.com/Gzeu/ArchNeuronX/actions)
-[![Docker](https://img.shields.io/badge/Docker-CUDA%2012.4-blue)](https://hub.docker.com/)
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-orange)](https://en.cppreference.com/)
-[![LibTorch](https://img.shields.io/badge/LibTorch-2.6.0-red)](https://pytorch.org/cppdocs/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![CUDA](https://img.shields.io/badge/CUDA-12.4-76B900)](https://developer.nvidia.com/cuda-toolkit)
-
-> High-performance algorithmic trading system using neural networks (MLP, CNN, **Transformer**), GPU acceleration, and comprehensive risk management.
-
-## What's New in v2.0
-
-| Feature | v1.x | v2.0 |
-|---------|------|------|
-| C++ Standard | C++17 | **C++20** |
-| LibTorch | 2.1.0 | **2.6.0** |
-| CUDA | 11.8+ | **12.4** |
-| Models | MLP, CNN | MLP, CNN, **Transformer, TFT** |
-| Technical Indicators | Basic | **RSI, MACD, BB, ATR, OBV, VWAP, Stochastic, CCI, ADX** |
-| Risk Management | None | **VaR, Kelly sizing, Stop-loss, Circuit breaker** |
-| API Endpoints | 5 | **10+ including /backtest, /portfolio, /risk** |
-| WebSocket | None | **Real-time market + signal streams** |
-| Auth | None | **API keys + rate limiting (token bucket)** |
-| Docker | Single stage | **Multi-stage, non-root, <500MB runtime** |
-| Kubernetes | None | **Deployment, HPA, PDB, GPU support** |
-| CI/CD | Basic | **Matrix builds, CodeQL, Trivy, Codecov** |
-| Logging | std::cout | **spdlog structured logging** |
-| Metrics | None | **Prometheus /metrics endpoint** |
-
-## Overview
-
-ArchNeuronX is a production-grade financial time series analysis system for algorithmic trading. It leverages neural networks with CUDA GPU acceleration to generate buy/sell/hold signals for crypto, forex, and equity markets.
-
-## Tech Stack
-
-- **C++20** - Core language with coroutines, concepts, ranges
-- **LibTorch 2.6.0** - PyTorch C++ API with Flash Attention
-- **CUDA 12.4 + cuDNN 9** - GPU acceleration + Tensor Cores
-- **Docker** - Multi-stage build, ~450MB runtime image
-- **Kubernetes** - Production deployment with HPA + GPU scheduling
-- **spdlog** - Structured JSON logging
-- **Prometheus** - Metrics exposition
-- **nlohmann/json** - JSON serialization
-- **OpenSSL** - API authentication
-
-## Key Features
-
-### Neural Network Models
-- **MLP** - Multi-layer perceptron for fast signal generation
-- **CNN** - Convolutional feature extraction from price patterns
-- **Transformer** - Multi-head attention with Flash Attention + RoPE
-- **TFT** - Temporal Fusion Transformer for multi-horizon forecasting
-- **Ensemble** - Dynamic model weighting by recent performance
-- **Online Learning** - Incremental updates without full retraining
-
-### Technical Indicators (GPU-accelerated)
-```
-Moving Averages : SMA, EMA, WMA
-Momentum        : RSI(14), MACD(12,26,9), Stochastic, Williams %R, ROC
-Volatility      : Bollinger Bands(20,2), ATR(14), Historical Volatility
-Volume          : OBV, VWAP, ADL, Chaikin Money Flow
-Trend           : CCI, ADX
-Feature Matrix  : 30+ features, z-score normalized, [T, F] tensor
-```
-
-### Risk Management
-- **Position Sizing**: Kelly Criterion, Half-Kelly, Volatility-adjusted, Risk Parity
-- **Stop-Loss**: Fixed %, ATR-based dynamic, Trailing stop
-- **VaR**: Historical simulation, Parametric, 95%/99% confidence
-- **Circuit Breaker**: Auto-halt if drawdown > 15%
-- **Trade Validation**: Exposure limits, correlation checks, regime filtering
-- **Metrics**: Sharpe, Sortino, Calmar, Max Drawdown, Win Rate, Profit Factor
+[![Build Status](https://github.com/Gzeu/ArchNeuronX/workflows/CI/badge.svg)](https://github.com/Gzeu/ArchNeuronX/actions)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![LibTorch](https://img.shields.io/badge/LibTorch-2.6-orange.svg)](https://pytorch.org/cppdocs/)
+[![CUDA](https://img.shields.io/badge/CUDA-12.4-green.svg)](https://developer.nvidia.com/cuda-toolkit)
 
 ### REST API v2
 ```
@@ -90,10 +25,17 @@ WS   /ws/v1/market            # Real-time market data NEW
 WS   /ws/v1/signals           # Real-time signals NEW
 ```
 
-**Authentication**: `X-API-Key: <your_key>` header  
-**Rate Limiting**: 100 req/min per key (token bucket algorithm)
+ArchNeuronX is a high-performance automated trading system leveraging neural networks (MLP/CNN/LSTM/Transformer) with GPU acceleration, real-time risk management, backtesting engine, portfolio optimization, and a full REST + WebSocket API.
 
-## Project Structure
+### Tech Stack
+
+- **C++20** - Core development language with concepts, coroutines, ranges
+- **LibTorch 2.6** - PyTorch C++ API for neural networks
+- **CUDA 12.4** - GPU acceleration for training and inference
+- **Ubuntu 22.04** - Primary build environment (multi-stage Docker)
+- **Docker** - Containerized multi-stage deployment
+- **REST + WebSocket API** - Real-time trading integration
+- **Kubernetes (k8s)** - Production orchestration
 
 ```
 ArchNeuronX/
@@ -117,7 +59,17 @@ ArchNeuronX/
 └── .github/workflows/  # CI/CD pipelines
 ```
 
-## Prerequisites
+- **Real-time Data Processing** - Crypto & Forex APIs with WebSocket feeds
+- **Neural Network Models** - MLP, CNN, LSTM, Transformer architectures
+- **GPU Acceleration** - CUDA 12.4-enabled training and inference
+- **Signal Generation** - Buy/sell/hold with confidence scores and VaR
+- **Risk Management** - VaR, CVaR, position sizing, circuit breakers
+- **Backtesting Engine** - Full historical simulation with Sharpe/Sortino metrics
+- **Portfolio Optimization** - Mean-variance, Kelly criterion, rebalancing
+- **REST + WebSocket API** - v2 endpoints for all subsystems
+- **Automated Reports** - Visual performance analytics
+- **CI/CD Pipeline** - GitHub Actions with security scanning
+- **Kubernetes** - Production-grade deployment manifests
 
 - C++20 compatible compiler (GCC 12+ or Clang 15+)
 - CMake 3.20+
@@ -126,24 +78,50 @@ ArchNeuronX/
 - Docker 24+ (for containerized deployment)
 - OpenSSL, libcurl, Boost, spdlog, nlohmann/json
 
-## Quick Start
+```
+ArchNeuronX/
+├── src/                    # Source code
+│   ├── core/               # Core trading engine
+│   ├── models/             # Neural network models (MLP/CNN/LSTM/Transformer)
+│   ├── data/               # Data acquisition & preprocessing
+│   ├── api/                # REST + WebSocket API endpoints
+│   ├── risk/               # Risk management (VaR, circuit breakers)
+│   ├── trading/            # Signal generation & execution
+│   ├── backtest/           # Backtesting engine
+│   ├── monitoring/         # System monitoring & metrics
+│   └── utils/              # Utility functions
+├── include/                # Header files
+├── tests/                  # Unit and integration tests
+├── k8s/                    # Kubernetes deployment manifests
+├── docs/                   # Documentation
+├── scripts/                # Build and deployment scripts
+├── config/                 # Configuration files
+├── .github/workflows/      # CI/CD pipelines
+├── CMakeLists.txt          # C++20 + LibTorch 2.6 + CUDA 12.4
+├── Dockerfile              # Multi-stage CUDA 12.4 + Ubuntu 22.04
+└── docker-compose.yml      # Full stack compose
+```
 
-### Build from Source
+## 🔧 Quick Start
+
+### Prerequisites
+
+- C++20 compatible compiler (GCC 12+ or Clang 14+)
+- CMake 3.25+
+- LibTorch 2.6
+- CUDA 12.4+ (optional, for GPU support)
+- Docker 24+ (for containerized deployment)
+
+### Building
 
 ```bash
 git clone https://github.com/Gzeu/ArchNeuronX.git
 cd ArchNeuronX
 
-# Download LibTorch 2.6.0 + CUDA 12.4
-wget https://download.pytorch.org/libtorch/cu124/libtorch-cxx11-abi-shared-with-deps-2.6.0+cu124.zip
-unzip libtorch-*.zip -d /opt/
-
-# Configure and build
-cmake -B build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DUSE_CUDA=ON \
-  -DTorch_DIR=/opt/libtorch/share/cmake/Torch
-cmake --build build --parallel $(nproc)
+# Build with CMake (C++20 + LibTorch 2.6)
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=20
+make -j$(nproc)
 
 # Run tests
 cd build && ctest --output-on-failure
@@ -152,22 +130,21 @@ cd build && ctest --output-on-failure
 ### Docker (Recommended)
 
 ```bash
-# Build
-docker build -t archneuronx:2.0.0 .
+# Build multi-stage Docker image (CUDA 12.4 + Ubuntu 22.04)
+docker build -t archneuronx:v2.0 .
 
-# Run with GPU
-docker run --gpus all -p 8080:8080 -p 9090:9090 archneuronx:2.0.0
+# Run with GPU support
+docker run --gpus all -p 8080:8080 -p 8081:8081 archneuronx:v2.0
 
-# Run CPU-only
-docker run -p 8080:8080 archneuronx:2.0.0
+# Full stack with docker-compose
+docker-compose up -d
 ```
 
-### Kubernetes
+### Kubernetes Deployment
 
 ```bash
-kubectl apply -f k8s/deployment.yaml
-kubectl -n trading get pods
-kubectl -n trading port-forward svc/archneuronx 8080:80
+# Deploy to Kubernetes
+kubectl apply -f k8s/
 ```
 
 ## Usage
@@ -175,12 +152,7 @@ kubectl -n trading port-forward svc/archneuronx 8080:80
 ### Train a Transformer Model
 
 ```bash
-./build/archneuronx train \
-  --model transformer \
-  --config config/transformer_config.json \
-  --data data/BTCUSDT_1h.csv \
-  --epochs 100 \
-  --device cuda
+./build/archneuronx train --config config/mlp_config.json --data data/crypto_data.csv --model lstm
 ```
 
 ### Generate Signals
@@ -192,71 +164,81 @@ kubectl -n trading port-forward svc/archneuronx 8080:80
   --output signals.json
 ```
 
-### Run Backtest via API
+### Backtesting
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/backtest \
-  -H "X-API-Key: your_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "strategy_id": "transformer",
-    "symbol": "BTCUSDT",
-    "start_date": "2024-01-01",
-    "end_date": "2025-12-31",
-    "initial_capital": 10000,
-    "include_costs": true
-  }'
+./build/archneuronx backtest --config config/backtest.json --from 2023-01-01 --to 2024-12-31
 ```
 
-### Start API Server
+### API Server
 
 ```bash
-./build/archneuronx server \
-  --port 8080 \
-  --metrics-port 9090 \
-  --log-level info
+./build/archneuronx server --port 8080 --ws-port 8081
 ```
+
+## 🔌 API Endpoints (v2)
+
+### REST API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v2/predict` | Generate trading signals |
+| GET | `/api/v2/models` | List available models |
+| POST | `/api/v2/train` | Start model training |
+| GET | `/api/v2/status` | System health check |
+| GET | `/api/v2/reports` | Performance reports |
+| POST | `/api/v2/backtest` | Run backtesting |
+| GET | `/api/v2/portfolio` | Portfolio status |
+| POST | `/api/v2/risk/var` | Calculate Value at Risk |
+| GET | `/api/v2/metrics` | Prometheus metrics |
+
+### WebSocket
+
+| Channel | Description |
+|---------|-------------|
+| `ws://host:8081/ws/signals` | Real-time trading signals |
+| `ws://host:8081/ws/portfolio` | Portfolio updates |
+| `ws://host:8081/ws/metrics` | Live performance metrics |
 
 ## API Authentication
 
+| Model | Use Case | Inference Latency |
+|-------|----------|------------------|
+| **MLP** | Pattern recognition in time series | < 1ms |
+| **CNN** | Feature extraction from OHLCV data | < 2ms |
+| **LSTM** | Sequential market data prediction | < 5ms |
+| **Transformer** | Attention-based multi-asset analysis | < 10ms |
+| **Ensemble** | Hybrid model voting | < 15ms |
 All endpoints require authentication via API key:
 
 ```http
 X-API-Key: anx_your_api_key_here
 ```
 
-Or Bearer token:
+- Accuracy, Precision, Recall, F1-Score
+- Sharpe Ratio, Sortino Ratio, Maximum Drawdown
+- Value at Risk (VaR 95%/99%), CVaR
+- Win Rate, Profit Factor, Risk-Adjusted Returns
+- Real-time GPU inference latency
+- Portfolio beta, alpha, correlation
 
 ```http
 Authorization: Bearer your_jwt_token
 ```
 
-## Performance
+- **GitHub Actions** - Automated C++20 builds and tests
+- **Docker Hub** - Multi-arch container registry
+- **Security Scans** - Trivy + CodeQL vulnerability assessment
+- **Performance Tests** - Automated benchmarking with Google Benchmark
+- **Dependabot** - Automated dependency updates
 
-| Operation | CPU (i9-13900K) | GPU (RTX 4090) |
-|-----------|-----------------|----------------|
-| MLP inference (batch=1) | ~0.3ms | ~0.05ms |
-| Transformer inference (seq=64, batch=1) | ~2ms | ~0.3ms |
-| Feature matrix computation (30 indicators, T=1000) | ~15ms | ~1.5ms |
-| Full pipeline (data→features→model→signal) | ~25ms | ~3ms |
-
-## Broker Integration Examples
-
-| Broker | API Type | Example Config |
-|--------|----------|----------------|
-| Binance | REST + WebSocket | `config/binance_config.json` |
-| Coinbase Advanced | REST + WebSocket | `config/coinbase_config.json` |
-| Interactive Brokers | TWS API | `config/ibkr_config.json` |
-| Kraken | REST + WebSocket | `config/kraken_config.json` |
-| Bybit | REST + WebSocket | `config/bybit_config.json` |
-
-## Documentation
+## 📖 Documentation
 
 - [Architecture Overview](docs/architecture.md)
 - [API Reference](docs/api.md)
 - [Model Training Guide](docs/training.md)
 - [Deployment Guide](docs/deployment.md)
-- [Risk Management Guide](docs/risk_management.md) NEW
+- [Risk Management](docs/risk_management.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 
@@ -276,6 +258,13 @@ cmake --build build && cd build && ctest
 
 ## License
 
+For questions and support:
+
+- Create an [issue](https://github.com/Gzeu/ArchNeuronX/issues)
+- Discussion forum: [GitHub Discussions](https://github.com/Gzeu/ArchNeuronX/discussions)
+
+---
+**Built with ❤️ for algorithmic trading enthusiasts | v2.0 | C++20 | LibTorch 2.6 | CUDA 12.4**
 MIT License - see [LICENSE](LICENSE)
 
 ---

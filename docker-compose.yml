@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # ============================================================
+  # Main ArchNeuronX Trading Service
+  # ============================================================
+  archneuronx:
+    build:
+      context: .
+      target: production
+    image: archneuronx:latest
+    container_name: archneuronx_trading
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # REST API
+      - "9090:9090"   # Prometheus metrics
+    volumes:
+      - ./config:/opt/archneuronx/config:ro
+      - ./models:/opt/archneuronx/models
+      - archneuronx_data:/opt/archneuronx/data
+      - archneuronx_logs:/opt/archneuronx/logs
+    environment:
+      - ARCHNEURONX_CONFIG=/opt/archneuronx/config/production.json
+      - ARCHNEURONX_LOG_LEVEL=info
+      - ARCHNEURONX_PORT=8080
+      - ARCHNEURONX_METRICS_PORT=9090
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v1/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - archneuronx_net
+    depends_on:
+      - prometheus
+      - grafana
+
+  # ============================================================
+  # Prometheus Monitoring
+  # ============================================================
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: archneuronx_prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - archneuronx_net
+
+  # ============================================================
+  # Grafana Dashboards
+  # ============================================================
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: archneuronx_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=archneuronx_admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - archneuronx_net
+
+  # ============================================================
+  # Development variant (mounts source for hot reload)
+  # ============================================================
+  archneuronx_dev:
+    build:
+      context: .
+      target: development
+    container_name: archneuronx_dev
+    profiles: ["dev"]
+    volumes:
+      - .:/app
+      - ./models:/opt/archneuronx/models
+    environment:
+      - ARCHNEURONX_LOG_LEVEL=debug
+    networks:
+      - archneuronx_net
+
+volumes:
+  archneuronx_data:
+  archneuronx_logs:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  archneuronx_net:
+    driver: bridge

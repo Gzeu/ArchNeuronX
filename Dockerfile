@@ -119,7 +119,7 @@ EXPOSE 8080 9090
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/api/v1/health || exit 1
+    CMD curl -f http://localhost:8080/api/v2/status || exit 1
 
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ENV ARCHNEURONX_CONFIG=/etc/archneuronx/config

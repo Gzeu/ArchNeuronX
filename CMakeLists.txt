@@ -94,29 +94,23 @@ if(NOT spdlog_FOUND)
     FetchContent_MakeAvailable(spdlog)
 endif()
 
-# Prometheus C++ client for metrics
 find_package(prometheus-cpp QUIET)
-
-# cURL for HTTP requests
 find_package(CURL REQUIRED)
-
-# Boost for various utilities
 find_package(Boost REQUIRED COMPONENTS system filesystem program_options)
 
 # ============================================================
-# Source files
+# Source files (v2: includes risk/, trading/, backtest/, monitoring/)
 # ============================================================
 set(CORE_SOURCES
     src/core/trading_engine.cpp
-    src/core/signal_generator.cpp
     src/core/order_manager.cpp
-    src/core/risk_manager.cpp
     src/core/portfolio_manager.cpp
     src/core/market_regime_detector.cpp
     src/core/ensemble_manager.cpp
 )
 
 set(MODEL_SOURCES
+    src/models/lstm_model.cpp
     src/models/mlp_model.cpp
     src/models/cnn_model.cpp
     src/models/transformer_model.cpp
@@ -145,6 +139,19 @@ set(API_SOURCES
     src/api/rate_limiter.cpp
 )
 
+# v2: new dedicated modules
+set(RISK_SOURCES
+    src/risk/risk_manager.cpp
+)
+
+set(TRADING_SOURCES
+    src/trading/signal_generator.cpp
+)
+
+set(BACKTEST_SOURCES
+    src/backtest/backtest_engine.cpp
+)
+
 set(UTILS_SOURCES
     src/utils/logger.cpp
     src/utils/metrics.cpp
@@ -159,6 +166,9 @@ set(ALL_SOURCES
     ${MODEL_SOURCES}
     ${DATA_SOURCES}
     ${API_SOURCES}
+    ${RISK_SOURCES}
+    ${TRADING_SOURCES}
+    ${BACKTEST_SOURCES}
     ${UTILS_SOURCES}
     src/main.cpp
 )
@@ -197,7 +207,6 @@ if(prometheus-cpp_FOUND)
     target_compile_definitions(archneuronx PRIVATE USE_PROMETHEUS=1)
 endif()
 
-# C++20 features
 target_compile_features(archneuronx PRIVATE cxx_std_20)
 
 # ============================================================
@@ -206,7 +215,6 @@ target_compile_features(archneuronx PRIVATE cxx_std_20)
 if(BUILD_TESTS)
     enable_testing()
     find_package(GTest REQUIRED)
-
     set(TEST_SOURCES
         tests/unit/test_technical_indicators.cpp
         tests/unit/test_risk_manager.cpp
@@ -218,7 +226,6 @@ if(BUILD_TESTS)
         tests/integration/test_api_endpoints.cpp
         tests/performance/test_inference_latency.cpp
     )
-
     add_executable(archneuronx_tests ${TEST_SOURCES})
     target_include_directories(archneuronx_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/include
@@ -250,10 +257,6 @@ if(BUILD_BENCHMARKS)
             benchmarks/bench_indicators.cpp
             benchmarks/bench_pipeline.cpp
         )
-        target_include_directories(archneuronx_bench PRIVATE
-            ${CMAKE_SOURCE_DIR}/include
-            ${TORCH_INCLUDE_DIRS}
-        )
         target_link_libraries(archneuronx_bench PRIVATE
             benchmark::benchmark
             ${TORCH_LIBRARIES}
@@ -282,11 +285,9 @@ set(CPACK_GENERATOR "DEB;TGZ")
 include(CPack)
 
 message(STATUS "")
-message(STATUS "ArchNeuronX v${PROJECT_VERSION} configuration:")
-message(STATUS "  C++ standard  : C++20")
-message(STATUS "  Build type    : ${CMAKE_BUILD_TYPE}")
-message(STATUS "  CUDA support  : ${USE_CUDA}")
-message(STATUS "  Tests         : ${BUILD_TESTS}")
-message(STATUS "  Benchmarks    : ${BUILD_BENCHMARKS}")
-message(STATUS "  LibTorch      : ${Torch_VERSION}")
+message(STATUS "ArchNeuronX v${PROJECT_VERSION} - C++20 | LibTorch 2.6 | CUDA 12.4")
+message(STATUS "  Build type : ${CMAKE_BUILD_TYPE}")
+message(STATUS "  CUDA       : ${USE_CUDA} (${CUDAToolkit_VERSION})")
+message(STATUS "  Tests      : ${BUILD_TESTS}")
+message(STATUS "  Benchmarks : ${BUILD_BENCHMARKS}")
 message(STATUS "")
