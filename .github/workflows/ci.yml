@@ -1,170 +1,229 @@
-# ============================================================
-# ArchNeuronX v2 - CI/CD Pipeline
-# Upgraded: LibTorch 2.6.0, C++20, GTest + Benchmark, CodeQL
-# ============================================================
 name: CI/CD Pipeline v2
 
 on:
   push:
-    branches: [main, develop, 'feature/**', 'fix/**']
+    branches: [ main, develop, 'feature/**', 'fix/**' ]
   pull_request:
-    branches: [main, develop]
-  release:
-    types: [published]
+    branches: [ main, develop ]
   schedule:
-    # Weekly dependency check every Monday 6am UTC
+    # Run full CI every Monday at 06:00 UTC
     - cron: '0 6 * * 1'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  LIBTORCH_VERSION: "2.6.0"
-  LIBTORCH_CUDA: "cpu"  # CPU for CI (no CUDA runner)
-  CMAKE_BUILD_PARALLEL_LEVEL: 4
+  BUILD_TYPE: Release
+  LIBTORCH_VERSION: 2.6.0
+  CUDA_VERSION: 12.4
 
 jobs:
   # ============================================================
-  # Job 1: Build & Unit Tests
+  # Job 1: Code Quality & Linting
   # ============================================================
-  build-and-test:
-    name: Build & Unit Tests (C++20 + LibTorch ${{ env.LIBTORCH_VERSION }})
+  code-quality:
+    name: Code Quality
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for changelog generation
+      - uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Install clang-format and clang-tidy
+        run: sudo apt-get install -y clang-format-16 clang-tidy-16
+
+      - name: Check code formatting
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build \
-            gcc-12 g++-12 \
-            libssl-dev libcurl4-openssl-dev \
-            nlohmann-json3-dev \
-            libspdlog-dev \
-            libgtest-dev libgmock-dev \
-            libbenchmark-dev \
-            libboost-system-dev libboost-thread-dev \
-            clang-format-14 clang-tidy-14 \
-            valgrind lcov
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+          find src include tests -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | \
+          xargs clang-format-16 --dry-run --Werror
+
+      - name: CMake lint
+        uses: cheshirekow/cmake-format-action@v0.6.13
+        with:
+          check: true
+
+  # ============================================================
+  # Job 2: Build & Test (CPU only for CI speed)
+  # ============================================================
+  build-test:
+    name: Build & Test (CPU)
+    runs-on: ubuntu-22.04
+    needs: code-quality
+    strategy:
+      matrix:
+        compiler: [gcc-12, clang-15]
+        build_type: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Cache LibTorch
-        id: cache-libtorch
         uses: actions/cache@v4
         with:
-          path: libtorch
-          key: libtorch-${{ env.LIBTORCH_VERSION }}-cpu-cxx11abi
+          path: /opt/libtorch
+          key: libtorch-${{ env.LIBTORCH_VERSION }}-cpu-${{ runner.os }}
+          restore-keys: libtorch-${{ env.LIBTORCH_VERSION }}-cpu
 
-      - name: Download LibTorch ${{ env.LIBTORCH_VERSION }} (CPU)
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: cmake-${{ matrix.compiler }}-${{ matrix.build_type }}-${{ hashFiles('CMakeLists.txt') }}-${{ github.sha }}
+          restore-keys: cmake-${{ matrix.compiler }}-${{ matrix.build_type }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build \
+            libssl-dev libcurl4-openssl-dev \
+            libboost-all-dev \
+            libgtest-dev libgmock-dev \
+            ${{ matrix.compiler }}
+
+      - name: Download LibTorch (CPU)
         if: steps.cache-libtorch.outputs.cache-hit != 'true'
         run: |
-          wget -q "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${{ env.LIBTORCH_VERSION }}%2Bcpu.zip" \
-            -O libtorch.zip
-          unzip -q libtorch.zip
-          rm libtorch.zip
-          echo "LibTorch ${{ env.LIBTORCH_VERSION }} downloaded"
+          wget -q https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${{ env.LIBTORCH_VERSION }}%2Bcpu.zip
+          unzip -q libtorch-*.zip -d /opt/
+          rm libtorch-*.zip
 
       - name: Configure CMake
         run: |
-          cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
-            -DCMAKE_CXX_COMPILER=g++-12 \
-            -DCMAKE_CXX_STANDARD=20
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DUSE_CUDA=OFF \
+            -DBUILD_TESTS=ON \
+            -DTorch_DIR=/opt/libtorch/share/cmake/Torch \
+            -G Ninja
 
       - name: Build
-        run: cmake --build build --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+        run: cmake --build build --parallel $(nproc)
 
       - name: Run Unit Tests
         run: |
           cd build
-          ctest --output-on-failure -R UnitTests \
-            --output-junit unit_test_results.xml || true
+          ctest --output-on-failure --timeout 180 -L unit
 
       - name: Run Integration Tests
         run: |
           cd build
-          ctest --output-on-failure -R IntegrationTests \
-            --output-junit integration_test_results.xml || true
-
-      - name: Run Benchmarks
-        run: |
-          if [ -f build/benchmarks/run_benchmarks ]; then
-            ./build/benchmarks/run_benchmarks \
-              --benchmark_format=json \
-              --benchmark_out=benchmark_results.json
-          fi
-
-      - name: Generate Code Coverage
-        run: |
-          cmake -B build_cov -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
-            -DCMAKE_CXX_FLAGS="--coverage" || true
-          cmake --build build_cov --parallel 4 || true
-          lcov --capture --directory build_cov --output-file coverage.info || true
-          lcov --remove coverage.info '/usr/*' '*/libtorch/*' '*/tests/*' \
-            --output-file coverage_filtered.info || true
-          lcov --list coverage_filtered.info || true
+          ctest --output-on-failure --timeout 300 -L integration
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: |
-            build/unit_test_results.xml
-            build/integration_test_results.xml
-            benchmark_results.json
-            coverage_filtered.info
+          name: test-results-${{ matrix.compiler }}-${{ matrix.build_type }}
+          path: build/Testing/
 
   # ============================================================
-  # Job 2: Code Quality
+  # Job 3: Code Coverage
   # ============================================================
-  code-quality:
-    name: Code Quality (clang-format + clang-tidy)
+  coverage:
+    name: Code Coverage
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    needs: build-and-test
-
+    needs: build-test
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install tools
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format-14 clang-tidy-14
+          sudo apt-get install -y cmake ninja-build lcov \
+            libssl-dev libcurl4-openssl-dev libboost-all-dev \
+            libgtest-dev libgmock-dev
 
-      - name: Check formatting
-        run: |
-          find src/ include/ tests/ -name "*.cpp" -o -name "*.hpp" -o -name "*.h" 2>/dev/null | \
-          xargs clang-format-14 --dry-run --Werror --style=file 2>&1 | head -50 || \
-          echo "Format check complete (warnings above are informational)"
+      - name: Cache LibTorch
+        uses: actions/cache@v4
+        with:
+          path: /opt/libtorch
+          key: libtorch-${{ env.LIBTORCH_VERSION }}-cpu-${{ runner.os }}
 
-      - name: Static analysis (clang-tidy)
+      - name: Build with coverage
         run: |
-          if [ -f build/compile_commands.json ]; then
-            find src/ -name "*.cpp" | head -20 | \
-            xargs clang-tidy-14 -p build --warnings-as-errors="" 2>&1 | head -100 || true
-          fi
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DUSE_CUDA=OFF \
+            -DBUILD_TESTS=ON \
+            -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+            -DTorch_DIR=/opt/libtorch/share/cmake/Torch \
+            -G Ninja
+          cmake --build build --parallel $(nproc)
+
+      - name: Run tests
+        run: cd build && ctest --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          lcov --capture --directory build --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' '/opt/*' '*/tests/*' --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   # ============================================================
-  # Job 3: Security Scanning
+  # Job 4: Docker Build & Scan
   # ============================================================
-  security:
-    name: Security Scan (CodeQL + Trivy)
+  docker:
+    name: Docker Build & Security Scan
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      security-events: write
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: archneuronx:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: archneuronx:${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Push to Docker Hub (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/archneuronx:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/archneuronx:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # Job 5: Static Analysis
+  # ============================================================
+  static-analysis:
+    name: Static Analysis (CodeQL)
+    runs-on: ubuntu-22.04
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -172,138 +231,17 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: cpp
-          queries: security-extended
+          queries: security-extended,security-and-quality
 
-      - name: Install minimal deps for CodeQL build
+      - name: Install deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gcc-12 g++-12 libssl-dev libcurl4-openssl-dev nlohmann-json3-dev
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+          sudo apt-get install -y cmake ninja-build libssl-dev libcurl4-openssl-dev libboost-all-dev
 
-      - name: Build for CodeQL
-        run: |
-          wget -q "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${{ env.LIBTORCH_VERSION }}%2Bcpu.zip" \
-            -O libtorch.zip && unzip -q libtorch.zip && rm libtorch.zip
-          cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libtorch \
-            -DCMAKE_CXX_COMPILER=g++-12 || true
-          cmake --build build --parallel 2 || true
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-
-      - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@master
         with:
-          scan-type: fs
-          format: sarif
-          output: trivy-results.sarif
-          severity: 'CRITICAL,HIGH'
-
-      - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-results.sarif
-
-  # ============================================================
-  # Job 4: Docker Build & Push
-  # ============================================================
-  docker:
-    name: Docker Build & Push
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
-    needs: [build-and-test, security]
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-          labels: |
-            org.opencontainers.image.title=ArchNeuronX
-            org.opencontainers.image.description=Automated Neural Network Trading System
-            org.opencontainers.image.vendor=George Pricop
-
-      - name: Build and push (production stage)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          target: production
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@master
-        if: github.event_name != 'pull_request'
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          format: sarif
-          output: docker-trivy.sarif
-          severity: 'CRITICAL,HIGH'
-
-  # ============================================================
-  # Job 5: Deploy (only on release)
-  # ============================================================
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-22.04
-    needs: docker
-    if: github.event_name == 'release'
-    environment: production
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Blue/Green Deployment
-        run: |
-          echo "Deploying ${{ github.ref_name }} to production..."
-          echo "New image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
-          # Add kubectl/helm commands here for Kubernetes deployment
-          # kubectl set image deployment/archneuronx \
-          #   archneuronx=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
-
-      - name: Health check post-deploy
-        run: |
-          echo "Running post-deployment health checks..."
-          # curl -sf https://your-domain.com/api/v1/status
-
-      - name: Notify on success
-        if: success()
-        run: echo "Deployment ${{ github.ref_name }} successful!"
-
-      - name: Rollback on failure
-        if: failure()
-        run: |
-          echo "Deployment FAILED - initiating rollback..."
-          # kubectl rollout undo deployment/archneuronx
+          category: "/language:cpp"
