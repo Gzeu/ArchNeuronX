@@ -1,58 +1,75 @@
-# ArchNeuronX - Automated Neural Network Trading System
+# ArchNeuronX v2.0 - Automated Neural Network Trading System
 
 [![Build Status](https://github.com/Gzeu/ArchNeuronX/workflows/CI/badge.svg)](https://github.com/Gzeu/ArchNeuronX/actions)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![LibTorch](https://img.shields.io/badge/LibTorch-2.6-orange.svg)](https://pytorch.org/cppdocs/)
+[![CUDA](https://img.shields.io/badge/CUDA-12.4-green.svg)](https://developer.nvidia.com/cuda-toolkit)
 
 ## 🚀 Overview
 
-ArchNeuronX is an automated financial time series analysis system for algorithmic trading using neural networks (MLP/CNN) with GPU acceleration, CI/CD automation, Docker deployment, and REST API integration.
+ArchNeuronX is a high-performance automated trading system leveraging neural networks (MLP/CNN/LSTM/Transformer) with GPU acceleration, real-time risk management, backtesting engine, portfolio optimization, and a full REST + WebSocket API.
 
 ### Tech Stack
-- **C++17** - Core development language
-- **LibTorch 2.1.0** - PyTorch C++ API for neural networks
-- **CUDA** - GPU acceleration support
-- **Arch Linux** - Primary development environment
-- **Docker** - Containerized deployment
-- **REST API** - External integration
+
+- **C++20** - Core development language with concepts, coroutines, ranges
+- **LibTorch 2.6** - PyTorch C++ API for neural networks
+- **CUDA 12.4** - GPU acceleration for training and inference
+- **Ubuntu 22.04** - Primary build environment (multi-stage Docker)
+- **Docker** - Containerized multi-stage deployment
+- **REST + WebSocket API** - Real-time trading integration
+- **Kubernetes (k8s)** - Production orchestration
 
 ## 🎯 Key Features
 
-- **Real-time Data Processing** - Crypto & Forex APIs integration
-- **Neural Network Models** - MLP and CNN architectures
-- **GPU Acceleration** - CUDA-enabled training and inference
-- **Signal Generation** - Buy/sell/hold recommendations with confidence scores
-- **REST API** - Trading bot integration endpoints
+- **Real-time Data Processing** - Crypto & Forex APIs with WebSocket feeds
+- **Neural Network Models** - MLP, CNN, LSTM, Transformer architectures
+- **GPU Acceleration** - CUDA 12.4-enabled training and inference
+- **Signal Generation** - Buy/sell/hold with confidence scores and VaR
+- **Risk Management** - VaR, CVaR, position sizing, circuit breakers
+- **Backtesting Engine** - Full historical simulation with Sharpe/Sortino metrics
+- **Portfolio Optimization** - Mean-variance, Kelly criterion, rebalancing
+- **REST + WebSocket API** - v2 endpoints for all subsystems
 - **Automated Reports** - Visual performance analytics
-- **CI/CD Pipeline** - Automated testing and deployment
+- **CI/CD Pipeline** - GitHub Actions with security scanning
+- **Kubernetes** - Production-grade deployment manifests
 
 ## 📋 Project Structure
 
 ```
 ArchNeuronX/
 ├── src/                    # Source code
-│   ├── core/              # Core trading engine
-│   ├── models/            # Neural network models
-│   ├── data/              # Data acquisition & preprocessing
-│   ├── api/               # REST API endpoints
-│   └── utils/             # Utility functions
-├── include/               # Header files
-├── tests/                 # Unit and integration tests
-├── docker/                # Docker configuration
-├── docs/                  # Documentation
-├── scripts/               # Build and deployment scripts
-├── config/                # Configuration files
-└── data/                  # Sample data and models
+│   ├── core/               # Core trading engine
+│   ├── models/             # Neural network models (MLP/CNN/LSTM/Transformer)
+│   ├── data/               # Data acquisition & preprocessing
+│   ├── api/                # REST + WebSocket API endpoints
+│   ├── risk/               # Risk management (VaR, circuit breakers)
+│   ├── trading/            # Signal generation & execution
+│   ├── backtest/           # Backtesting engine
+│   ├── monitoring/         # System monitoring & metrics
+│   └── utils/              # Utility functions
+├── include/                # Header files
+├── tests/                  # Unit and integration tests
+├── k8s/                    # Kubernetes deployment manifests
+├── docs/                   # Documentation
+├── scripts/                # Build and deployment scripts
+├── config/                 # Configuration files
+├── .github/workflows/      # CI/CD pipelines
+├── CMakeLists.txt          # C++20 + LibTorch 2.6 + CUDA 12.4
+├── Dockerfile              # Multi-stage CUDA 12.4 + Ubuntu 22.04
+└── docker-compose.yml      # Full stack compose
 ```
 
 ## 🔧 Quick Start
 
 ### Prerequisites
-- C++17 compatible compiler (GCC 9+ or Clang 10+)
-- CMake 3.18+
-- LibTorch 2.1.0
-- CUDA 11.8+ (optional, for GPU support)
-- Docker (for containerized deployment)
+
+- C++20 compatible compiler (GCC 12+ or Clang 14+)
+- CMake 3.25+
+- LibTorch 2.6
+- CUDA 12.4+ (optional, for GPU support)
+- Docker 24+ (for containerized deployment)
 
 ### Building
 
@@ -61,9 +78,9 @@ ArchNeuronX/
 git clone https://github.com/Gzeu/ArchNeuronX.git
 cd ArchNeuronX
 
-# Build with CMake
+# Build with CMake (C++20 + LibTorch 2.6)
 mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=20
 make -j$(nproc)
 
 # Run tests
@@ -73,11 +90,21 @@ ctest --output-on-failure
 ### Docker Deployment
 
 ```bash
-# Build Docker image
-docker build -t archneuronx .
+# Build multi-stage Docker image (CUDA 12.4 + Ubuntu 22.04)
+docker build -t archneuronx:v2.0 .
 
-# Run container
-docker run -p 8080:8080 archneuronx
+# Run with GPU support
+docker run --gpus all -p 8080:8080 -p 8081:8081 archneuronx:v2.0
+
+# Full stack with docker-compose
+docker-compose up -d
+```
+
+### Kubernetes Deployment
+
+```bash
+# Deploy to Kubernetes
+kubectl apply -f k8s/
 ```
 
 ## 📊 Usage
@@ -85,7 +112,7 @@ docker run -p 8080:8080 archneuronx
 ### Training Models
 
 ```bash
-./build/archneuronx train --config config/mlp_config.json --data data/crypto_data.csv
+./build/archneuronx train --config config/mlp_config.json --data data/crypto_data.csv --model lstm
 ```
 
 ### Generating Signals
@@ -94,46 +121,76 @@ docker run -p 8080:8080 archneuronx
 ./build/archneuronx predict --model models/trained_model.pt --input data/live_feed.csv
 ```
 
+### Backtesting
+
+```bash
+./build/archneuronx backtest --config config/backtest.json --from 2023-01-01 --to 2024-12-31
+```
+
 ### API Server
 
 ```bash
-./build/archneuronx server --port 8080
+./build/archneuronx server --port 8080 --ws-port 8081
 ```
 
-## 🔌 API Endpoints
+## 🔌 API Endpoints (v2)
 
-- `POST /api/v1/predict` - Generate trading signals
-- `GET /api/v1/models` - List available models
-- `POST /api/v1/train` - Start model training
-- `GET /api/v1/status` - System health check
-- `GET /api/v1/reports` - Performance reports
+### REST API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v2/predict` | Generate trading signals |
+| GET | `/api/v2/models` | List available models |
+| POST | `/api/v2/train` | Start model training |
+| GET | `/api/v2/status` | System health check |
+| GET | `/api/v2/reports` | Performance reports |
+| POST | `/api/v2/backtest` | Run backtesting |
+| GET | `/api/v2/portfolio` | Portfolio status |
+| POST | `/api/v2/risk/var` | Calculate Value at Risk |
+| GET | `/api/v2/metrics` | Prometheus metrics |
+
+### WebSocket
+
+| Channel | Description |
+|---------|-------------|
+| `ws://host:8081/ws/signals` | Real-time trading signals |
+| `ws://host:8081/ws/portfolio` | Portfolio updates |
+| `ws://host:8081/ws/metrics` | Live performance metrics |
 
 ## 🧠 Supported Models
 
-- **MLP (Multi-Layer Perceptron)** - For pattern recognition in time series
-- **CNN (Convolutional Neural Network)** - For feature extraction from market data
-- **Hybrid Models** - Combining MLP and CNN architectures
+| Model | Use Case | Inference Latency |
+|-------|----------|------------------|
+| **MLP** | Pattern recognition in time series | < 1ms |
+| **CNN** | Feature extraction from OHLCV data | < 2ms |
+| **LSTM** | Sequential market data prediction | < 5ms |
+| **Transformer** | Attention-based multi-asset analysis | < 10ms |
+| **Ensemble** | Hybrid model voting | < 15ms |
 
 ## 📈 Performance Metrics
 
 - Accuracy, Precision, Recall, F1-Score
-- Sharpe Ratio, Maximum Drawdown
-- Win Rate, Risk-Adjusted Returns
-- Real-time inference latency
+- Sharpe Ratio, Sortino Ratio, Maximum Drawdown
+- Value at Risk (VaR 95%/99%), CVaR
+- Win Rate, Profit Factor, Risk-Adjusted Returns
+- Real-time GPU inference latency
+- Portfolio beta, alpha, correlation
 
 ## 🔄 CI/CD Pipeline
 
-- **GitHub Actions** - Automated builds and tests
-- **Docker Hub** - Container registry
-- **Security Scans** - Vulnerability assessment
-- **Performance Tests** - Automated benchmarking
+- **GitHub Actions** - Automated C++20 builds and tests
+- **Docker Hub** - Multi-arch container registry
+- **Security Scans** - Trivy + CodeQL vulnerability assessment
+- **Performance Tests** - Automated benchmarking with Google Benchmark
+- **Dependabot** - Automated dependency updates
 
-## 📚 Documentation
+## 📖 Documentation
 
 - [Architecture Overview](docs/architecture.md)
 - [API Reference](docs/api.md)
 - [Model Training Guide](docs/training.md)
 - [Deployment Guide](docs/deployment.md)
+- [Risk Management](docs/risk_management.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 
 ## 🤝 Contributing
@@ -147,9 +204,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For questions and support:
+
 - Create an [issue](https://github.com/Gzeu/ArchNeuronX/issues)
 - Discussion forum: [GitHub Discussions](https://github.com/Gzeu/ArchNeuronX/discussions)
 
 ---
-
-**Built with ❤️ for algorithmic trading enthusiasts**
+**Built with ❤️ for algorithmic trading enthusiasts | v2.0 | C++20 | LibTorch 2.6 | CUDA 12.4**
