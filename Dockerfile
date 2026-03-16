@@ -1,26 +1,67 @@
-# Multi-stage build for ArchNeuronX
-FROM archlinux:latest as builder
+# ============================================================
+# ArchNeuronX v2 Dockerfile
+# CUDA 12.4.1 + LibTorch 2.6.0 + Ubuntu 22.04
+# Multi-stage build for minimal production image
+# ============================================================
 
-# Install build dependencies
-RUN pacman -Syu --noconfirm && \
-    pacman -S --noconfirm \
-    base-devel \
+# ============================================================
+# Stage 1: Dependencies Cache
+# ============================================================
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS deps
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
     cmake \
-    gcc \
-    git \
-    python \
-    python-pip \
-    cuda \
-    cudnn && \
-    pacman -Scc --noconfirm
+    ninja-build \
+    gcc-12 \
+    g++-12 \
+    # Required libraries
+    libssl-dev \
+    libcurl4-openssl-dev \
+    ca-certificates \
+    wget \
+    unzip \
+    # JSON (nlohmann header-only)
+    nlohmann-json3-dev \
+    # Logging
+    libspdlog-dev \
+    # WebSocket
+    libboost-system-dev \
+    libboost-thread-dev \
+    # Testing
+    libgtest-dev \
+    libgmock-dev \
+    # Benchmarking
+    libbenchmark-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
 
-# Install LibTorch
+# ============================================================
+# Stage 2: LibTorch Download
+# ============================================================
+FROM deps AS libtorch
+
 WORKDIR /opt
-RUN wget https://download.pytorch.org/libtorch/cu118/libtorch-cxx11-abi-shared-with-deps-2.1.0%2Bcu118.zip && \
-    unzip libtorch-cxx11-abi-shared-with-deps-2.1.0+cu118.zip && \
-    rm libtorch-cxx11-abi-shared-with-deps-2.1.0+cu118.zip
+# LibTorch 2.6.0 + CUDA 12.4 (cxx11 ABI for Linux compatibility)
+RUN wget -q --show-progress \
+    "https://download.pytorch.org/libtorch/cu124/libtorch-cxx11-abi-shared-with-deps-2.6.0%2Bcu124.zip" \
+    -O libtorch.zip \
+    && unzip -q libtorch.zip \
+    && rm libtorch.zip \
+    && echo "LibTorch 2.6.0+cu124 downloaded successfully"
 
-# Set environment variables
+# ============================================================
+# Stage 3: Build
+# ============================================================
+FROM deps AS builder
+
+# Copy LibTorch from cache stage
+COPY --from=libtorch /opt/libtorch /opt/libtorch
+
 ENV Torch_DIR=/opt/libtorch/share/cmake/Torch
 ENV LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH
 
@@ -28,47 +69,90 @@ ENV LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH
 WORKDIR /app
 COPY . .
 
-# Build the application
-RUN mkdir build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/libtorch && \
-    make -j$(nproc)
+# Build with Ninja for faster compilation
+RUN cmake -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH=/opt/libtorch \
+    -DCMAKE_CXX_COMPILER=g++-12 \
+    -DCMAKE_CUDA_ARCHITECTURES="75;80;86;89;90" \
+    && cmake --build build --parallel $(nproc) \
+    && echo "Build completed successfully"
 
-# Production stage
-FROM archlinux:latest as production
+# Run unit tests during build
+RUN cd build && ctest --output-on-failure -R UnitTests || true
 
-# Install runtime dependencies
-RUN pacman -Syu --noconfirm && \
-    pacman -S --noconfirm \
-    gcc-libs \
-    cuda-runtime \
-    curl && \
-    pacman -Scc --noconfirm
+# ============================================================
+# Stage 4: Production Runtime (minimal image)
+# ============================================================
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS production
 
-# Copy LibTorch libraries
-COPY --from=builder /opt/libtorch/lib /opt/libtorch/lib
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Copy built application
-COPY --from=builder /app/build/archneuronx /usr/local/bin/
+# Minimal runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    libcurl4 \
+    ca-certificates \
+    libspdlog1 \
+    curl \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy LibTorch shared libraries (only .so files, not headers/cmake)
+COPY --from=builder /opt/libtorch/lib/*.so* /opt/libtorch/lib/
+
+# Copy built binary
+COPY --from=builder /app/build/bin/archneuronx /usr/local/bin/archneuronx
+
+# Copy config and scripts
 COPY --from=builder /app/config /opt/archneuronx/config
 COPY --from=builder /app/scripts /opt/archneuronx/scripts
 
-# Set environment variables
-ENV LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH
-ENV PATH=/opt/archneuronx/scripts:$PATH
+# Environment
+ENV LD_LIBRARY_PATH=/opt/libtorch/lib
+ENV ARCHNEURONX_CONFIG=/opt/archneuronx/config/production.json
+ENV ARCHNEURONX_LOG_LEVEL=info
+ENV ARCHNEURONX_PORT=8080
+ENV ARCHNEURONX_METRICS_PORT=9090
 
-# Create non-root user
-RUN useradd -m -u 1000 archneuron && \
-    chown -R archneuron:archneuron /opt/archneuronx
+# Create non-root user for security
+RUN groupadd -g 1000 archneuron \
+    && useradd -m -u 1000 -g archneuron archneuron \
+    && chown -R archneuron:archneuron /opt/archneuronx
 
 USER archneuron
 WORKDIR /opt/archneuronx
 
-# Expose API port
-EXPOSE 8080
+# API port + Prometheus metrics port
+EXPOSE 8080 9090
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/api/v1/status || exit 1
+# Health check (main API + metrics)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -sf http://localhost:${ARCHNEURONX_PORT}/api/v1/status || exit 1
 
-# Default command
-CMD ["archneuronx", "server", "--port", "8080", "--config", "config/production.json"]
+# Use tini as init to handle signals correctly
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["archneuronx", \
+     "--config", "/opt/archneuronx/config/production.json", \
+     "--port", "8080", \
+     "--metrics-port", "9090", \
+     "--log-level", "info"]
+
+# ============================================================
+# Stage 5: Development image (includes tools for debugging)
+# ============================================================
+FROM builder AS development
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gdb \
+    valgrind \
+    strace \
+    htop \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LD_LIBRARY_PATH=/opt/libtorch/lib
+WORKDIR /app
+
+# Dev entrypoint runs tests automatically
+CMD ["bash", "-c", "cmake --build build && cd build && ctest --output-on-failure"]
