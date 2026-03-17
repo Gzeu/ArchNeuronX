@@ -26,7 +26,7 @@ jobs:
     name: Code Quality
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install clang-format and clang-tidy
         run: sudo apt-get install -y clang-format-16 clang-tidy-16
@@ -53,7 +53,7 @@ jobs:
         compiler: [gcc-12, clang-15]
         build_type: [Debug, Release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Cache LibTorch
         uses: actions/cache@v5
@@ -123,7 +123,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build-test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
@@ -173,7 +173,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build-test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -225,7 +225,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
