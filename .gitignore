@@ -1,0 +1,51 @@
+# Build artifacts
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Compiled binaries
+bin/
+lib/
+
+# Test outputs
+test_results/
+coverage/
+
+# Profiling data
+*.prof
+*.profraw
+
+# CUDA
+*.ptx
+*.cubin
+
+# Docker
+.dockerignore
+
+# Node modules (for dashboard)
+dashboard/node_modules/
