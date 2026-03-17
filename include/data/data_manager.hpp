@@ -22,6 +22,9 @@
 #include "data_provider.hpp"
 #include "data_preprocessor.hpp"
 #include "technical_indicators.hpp"
+#include "binance_provider.hpp"
+#include "alpha_vantage_provider.hpp"
+#include "coinbase_provider.hpp"
 #include "core/logger.hpp"
 #include "core/config.hpp"
 
