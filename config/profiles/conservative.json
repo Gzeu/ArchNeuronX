@@ -1,0 +1,136 @@
+{
+  "profile_name": "conservative",
+  "description": "Conservative trading profile with high reliability and low risk",
+  "environment": "production",
+  
+  "data_providers": {
+    "alpha_vantage": {
+      "enabled": true,
+      "rate_limits": {
+        "requests_per_minute": 3
+      }
+    },
+    "yahoo_finance": {
+      "enabled": true,
+      "rate_limits": {
+        "requests_per_minute": 50
+      }
+    },
+    "metatrader": {
+      "enabled": true,
+      "rate_limits": {
+        "requests_per_second": 5,
+        "requests_per_minute": 300
+      }
+    }
+  },
+  
+  "data_aggregation": {
+    "method": "consensus",
+    "min_sources": 2,
+    "max_sources": 4,
+    "enable_quality_scoring": true,
+    "enable_outlier_detection": true,
+    "outlier_threshold": 2.0,
+    "staleness_penalty_minutes": 10.0,
+    "enable_cross_validation": true,
+    "source_weights": {
+      "alpha_vantage": 0.4,
+      "yahoo_finance": 0.3,
+      "metatrader": 0.3
+    }
+  },
+  
+  "data_manager": {
+    "historical_days": 730,
+    "cache_ttl_minutes": 15,
+    "cache_size_mb": 4096,
+    "update_interval_ms": 5000,
+    "enable_data_validation": true,
+    "enable_persistence": true,
+    "max_concurrent_requests": 5
+  },
+  
+  "monitoring": {
+    "health_check_interval_seconds": 60,
+    "alert_thresholds": {
+      "latency_ms": 2000,
+      "error_rate_percent": 2.0,
+      "data_gap_minutes": 30
+    },
+    "enable_comprehensive_monitoring": true,
+    "enable_trend_analysis": true
+  },
+  
+  "trading": {
+    "paper_trading": false,
+    "max_position_size": 5000,
+    "enable_risk_management": true,
+    "simulation_mode": false,
+    "enable_circuit_breakers": true,
+    "max_daily_loss": 2000,
+    "var_confidence": 0.97,
+    "position_sizing_method": "kelly_criterion",
+    "enable_stop_loss": true,
+    "enable_take_profit": true,
+    "stop_loss_atr_multiplier": 1.5,
+    "take_profit_atr_multiplier": 2.0,
+    "max_positions_per_symbol": 3,
+    "enable_diversification": true
+  },
+  
+  "logging": {
+    "level": "info",
+    "enable_file_logging": true,
+    "enable_console_logging": true,
+    "log_directory": "logs/conservative/",
+    "max_log_file_size_mb": 200,
+    "enable_log_rotation": true,
+    "enable_structured_logging": true,
+    "enable_audit_logging": true
+  },
+  
+  "performance": {
+    "enable_profiling": false,
+    "enable_metrics_collection": true,
+    "metrics_export_interval_seconds": 120,
+    "enable_performance_alerts": true
+  },
+  
+  "risk_management": {
+    "max_portfolio_risk": 0.02,
+    "max_correlation": 0.7,
+    "enable_var_monitoring": true,
+    "enable_stress_testing": true,
+    "scenario_analysis_days": 30,
+    "enable_dynamic_hedging": true
+  },
+  
+  "features": {
+    "enable_test_data": false,
+    "enable_mock_providers": false,
+    "enable_data_simulation": false,
+    "enable_backtesting": true,
+    "enable_portfolio_optimization": true,
+    "enable_automated_trading": false,
+    "enable_risk_monitoring": true,
+    "enable_compliance_checking": true,
+    "enable_regulatory_reporting": true
+  },
+  
+  "data_quality": {
+    "enable_data_cleaning": true,
+    "enable_anomaly_detection": true,
+    "min_data_quality_score": 0.8,
+    "enable_data_source_verification": true,
+    "enable_historical_data_validation": true
+  },
+  
+  "backup": {
+    "enable_data_backup": true,
+    "backup_interval_hours": 12,
+    "backup_retention_days": 90,
+    "backup_location": "backups/conservative/",
+    "enable_encrypted_backup": true
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "profile_name": "development",
+  "description": "Development environment with test data and relaxed settings",
+  "environment": "development",
+  
+  "data_providers": {
+    "binance": {
+      "enabled": true,
+      "use_testnet": true,
+      "rate_limits": {
+        "requests_per_second": 5,
+        "requests_per_minute": 300
+      }
+    },
+    "alpha_vantage": {
+      "enabled": true
+    },
+    "yahoo_finance": {
+      "enabled": true
+    }
+  },
+  
+  "data_aggregation": {
+    "method": "first_available",
+    "min_sources": 1,
+    "enable_outlier_detection": false,
+    "staleness_penalty_minutes": 10.0
+  },
+  
+  "data_manager": {
+    "historical_days": 30,
+    "cache_ttl_minutes": 10,
+    "cache_size_mb": 512,
+    "update_interval_ms": 2000,
+    "enable_data_validation": false
+  },
+  
+  "monitoring": {
+    "health_check_interval_seconds": 60,
+    "alert_thresholds": {
+      "latency_ms": 2000,
+      "error_rate_percent": 10.0
+    }
+  },
+  
+  "trading": {
+    "paper_trading": true,
+    "max_position_size": 1000,
+    "enable_risk_management": false,
+    "simulation_mode": true
+  },
+  
+  "logging": {
+    "level": "debug",
+    "enable_file_logging": true,
+    "enable_console_logging": true,
+    "log_directory": "logs/dev/",
+    "max_log_file_size_mb": 100
+  },
+  
+  "performance": {
+    "enable_profiling": true,
+    "enable_metrics_collection": true,
+    "metrics_export_interval_seconds": 30
+  },
+  
+  "features": {
+    "enable_test_data": true,
+    "enable_mock_providers": false,
+    "enable_data_simulation": true,
+    "enable_backtesting": true,
+    "enable_portfolio_optimization": true
+  }
+}

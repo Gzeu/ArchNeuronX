@@ -1,0 +1,357 @@
+{
+  "data_providers": {
+    "binance": {
+      "enabled": true,
+      "api_key": "${BINANCE_API_KEY}",
+      "api_secret": "${BINANCE_API_SECRET}",
+      "use_testnet": false,
+      "base_url": "https://api.binance.com",
+      "ws_url": "wss://stream.binance.com:9443/ws/",
+      "rate_limits": {
+        "requests_per_second": 10,
+        "requests_per_minute": 1200
+      },
+      "supported_assets": ["crypto"],
+      "features": ["historical_data", "real_time_ticks", "order_book", "websocket"],
+      "reliability_score": 0.95,
+      "latency_score": 0.85,
+      "data_quality": "high"
+    },
+    
+    "coinbase": {
+      "enabled": false,
+      "api_key": "${COINBASE_API_KEY}",
+      "api_secret": "${COINBASE_API_SECRET}",
+      "passphrase": "${COINBASE_PASSPHRASE}",
+      "base_url": "https://api.pro.coinbase.com",
+      "ws_url": "wss://ws-feed.pro.coinbase.com",
+      "rate_limits": {
+        "requests_per_second": 10,
+        "requests_per_minute": 600
+      },
+      "supported_assets": ["crypto"],
+      "features": ["historical_data", "real_time_ticks", "order_book", "websocket"],
+      "reliability_score": 0.90,
+      "latency_score": 0.80,
+      "data_quality": "high"
+    },
+    
+    "kraken": {
+      "enabled": false,
+      "api_key": "${KRAKEN_API_KEY}",
+      "api_secret": "${KRAKEN_API_SECRET}",
+      "base_url": "https://api.kraken.com",
+      "ws_url": "wss://ws.kraken.com",
+      "rate_limits": {
+        "requests_per_second": 15,
+        "requests_per_minute": 900
+      },
+      "supported_assets": ["crypto"],
+      "features": ["historical_data", "real_time_ticks", "order_book", "websocket"],
+      "reliability_score": 0.88,
+      "latency_score": 0.82,
+      "data_quality": "high"
+    },
+    
+    "alpha_vantage": {
+      "enabled": true,
+      "api_key": "${ALPHA_VANTAGE_API_KEY}",
+      "base_url": "https://www.alphavantage.co/query",
+      "rate_limits": {
+        "requests_per_minute": 5,
+        "requests_per_day": 500
+      },
+      "supported_assets": ["stocks", "forex", "crypto"],
+      "features": ["historical_data", "real_time_quotes", "market_status", "symbol_search"],
+      "reliability_score": 0.92,
+      "latency_score": 0.75,
+      "data_quality": "medium"
+    },
+    
+    "yahoo_finance": {
+      "enabled": true,
+      "base_url": "https://query1.finance.yahoo.com",
+      "rate_limits": {
+        "requests_per_minute": 100,
+        "requests_per_hour": 2000
+      },
+      "supported_assets": ["stocks", "forex", "crypto", "etfs"],
+      "features": ["historical_data", "real_time_quotes", "symbol_search", "market_movers", "sector_performance"],
+      "reliability_score": 0.85,
+      "latency_score": 0.70,
+      "data_quality": "medium"
+    },
+    
+    "metatrader": {
+      "enabled": false,
+      "api_key": "${METATRADER_API_KEY}",
+      "user_id": "${METATRADER_USER_ID}",
+      "account_id": "${METATRADER_ACCOUNT_ID}",
+      "base_url": "https://mt5webapi.com/api",
+      "ws_url": "wss://mt5webapi.com/api",
+      "rate_limits": {
+        "requests_per_second": 10,
+        "requests_per_minute": 600
+      },
+      "supported_assets": ["forex", "cfd", "metals", "indices"],
+      "features": ["historical_data", "real_time_ticks", "order_book", "websocket", "account_management"],
+      "reliability_score": 0.93,
+      "latency_score": 0.88,
+      "data_quality": "high"
+    }
+  },
+  
+  "data_aggregation": {
+    "enabled": true,
+    "method": "weighted_average",
+    "min_sources": 2,
+    "max_sources": 5,
+    "enable_quality_scoring": true,
+    "enable_outlier_detection": true,
+    "outlier_threshold": 3.0,
+    "staleness_penalty_minutes": 5.0,
+    "enable_cross_validation": true,
+    "source_weights": {
+      "binance": 0.25,
+      "coinbase": 0.20,
+      "kraken": 0.15,
+      "alpha_vantage": 0.20,
+      "yahoo_finance": 0.10,
+      "metatrader": 0.10
+    }
+  },
+  
+  "data_manager": {
+    "enable_caching": true,
+    "cache_ttl_minutes": 5,
+    "cache_size_mb": 1024,
+    "enable_persistence": true,
+    "data_directory": "data/",
+    "max_concurrent_requests": 10,
+    "update_interval_ms": 1000,
+    "enable_data_validation": true,
+    "enable_technical_indicators": true,
+    "backfill_missing_data": true,
+    "historical_days": 365
+  },
+  
+  "preprocessing": {
+    "normalization_method": "z_score",
+    "imputation_method": "linear_interp",
+    "enable_feature_engineering": true,
+    "enable_technical_indicators": true,
+    "indicator_periods": [5, 10, 20, 50],
+    "enable_volume_profile": true,
+    "enable_volatility_metrics": true
+  },
+  
+  "monitoring": {
+    "enable_health_checks": true,
+    "health_check_interval_seconds": 30,
+    "enable_performance_metrics": true,
+    "enable_error_tracking": true,
+    "alert_thresholds": {
+      "latency_ms": 1000,
+      "error_rate_percent": 5.0,
+      "data_gap_minutes": 15
+    }
+  },
+  
+  "profiles": {
+    "development": {
+      "description": "Development environment with test data",
+      "data_providers": {
+        "binance": {
+          "enabled": true,
+          "use_testnet": true
+        },
+        "alpha_vantage": {
+          "enabled": true
+        },
+        "yahoo_finance": {
+          "enabled": true
+        }
+      },
+      "data_aggregation": {
+        "min_sources": 1,
+        "enable_outlier_detection": false
+      },
+      "monitoring": {
+        "health_check_interval_seconds": 60
+      }
+    },
+    
+    "testing": {
+      "description": "Testing environment with limited data",
+      "data_providers": {
+        "binance": {
+          "enabled": true,
+          "use_testnet": true
+        },
+        "yahoo_finance": {
+          "enabled": true
+        }
+      },
+      "data_aggregation": {
+        "min_sources": 1,
+        "max_sources": 2
+      },
+      "data_manager": {
+        "historical_days": 30
+      }
+    },
+    
+    "production": {
+      "description": "Production environment with full redundancy",
+      "data_providers": {
+        "binance": {
+          "enabled": true,
+          "use_testnet": false
+        },
+        "alpha_vantage": {
+          "enabled": true
+        },
+        "yahoo_finance": {
+          "enabled": true
+        },
+        "metatrader": {
+          "enabled": true
+        }
+      },
+      "data_aggregation": {
+        "min_sources": 3,
+        "max_sources": 5,
+        "enable_quality_scoring": true,
+        "enable_outlier_detection": true
+      },
+      "data_manager": {
+        "historical_days": 365,
+        "cache_size_mb": 2048
+      },
+      "monitoring": {
+        "health_check_interval_seconds": 30
+      }
+    },
+    
+    "high_frequency": {
+      "description": "High-frequency trading with minimal latency",
+      "data_providers": {
+        "binance": {
+          "enabled": true,
+          "use_testnet": false
+        },
+        "kraken": {
+          "enabled": true
+        },
+        "metatrader": {
+          "enabled": true
+        }
+      },
+      "data_aggregation": {
+        "method": "latest_timestamp",
+        "staleness_penalty_minutes": 1.0,
+        "enable_cross_validation": true
+      },
+      "data_manager": {
+        "update_interval_ms": 100,
+        "cache_ttl_minutes": 1
+      },
+      "monitoring": {
+        "health_check_interval_seconds": 10,
+        "alert_thresholds": {
+          "latency_ms": 100,
+          "error_rate_percent": 1.0
+        }
+      }
+    },
+    
+    "conservative": {
+      "description": "Conservative trading with high reliability",
+      "data_providers": {
+        "alpha_vantage": {
+          "enabled": true
+        },
+        "yahoo_finance": {
+          "enabled": true
+        },
+        "metatrader": {
+          "enabled": true
+        }
+      },
+      "data_aggregation": {
+        "method": "consensus",
+        "min_sources": 2,
+        "outlier_threshold": 2.0
+      },
+      "data_manager": {
+        "historical_days": 730,
+        "cache_size_mb": 4096
+      },
+      "monitoring": {
+        "health_check_interval_seconds": 60,
+        "alert_thresholds": {
+          "latency_ms": 2000,
+          "error_rate_percent": 2.0
+        }
+      }
+    }
+  },
+  
+  "symbols": {
+    "crypto_major": [
+      "BTC/USDT", "ETH/USDT", "BNB/USDT", "ADA/USDT", "SOL/USDT",
+      "XRP/USDT", "DOT/USDT", "AVAX/USDT", "MATIC/USDT"
+    ],
+    "crypto_alt": [
+      "LINK/USDT", "UNI/USDT", "AAVE/USDT", "COMP/USDT", "MKR/USDT",
+      "SUSHI/USDT", "CRV/USDT", "YFI/USDT", "SNX/USDT"
+    ],
+    "forex_major": [
+      "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD",
+      "USD/CAD", "NZD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY"
+    ],
+    "forex_cross": [
+      "EUR/AUD", "EUR/CAD", "EUR/CHF", "EUR/NZD", "GBP/AUD", "GBP/CAD",
+      "GBP/CHF", "GBP/NZD", "AUD/CAD", "AUD/CHF", "CAD/CHF"
+    ],
+    "stocks_us": [
+      "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "JPM", "JNJ",
+      "V", "PG", "UNH", "HD", "KO", "PEP", "COST", "WMT", "DIS"
+    ],
+    "stocks_tech": [
+      "AAPL", "MSFT", "GOOGL", "TSLA", "META", "NVDA", "AMD", "INTC", "CSCO",
+      "ADBE", "CRM", "NFLX", "PYPL", "SQ", "SHOP", "ZM", "SNOW"
+    ],
+    "indices_major": [
+      "SPY", "QQQ", "DIA", "IWM", "VTI", "VOO", "GLD", "SLV", "USO", "TLT"
+    ],
+    "commodities": [
+      "GC=F", "SI=F", "CL=F", "NG=F", "ZC=F", "ZW=F", "SB=F", "KC=F", "CT=F"
+    ]
+  },
+  
+  "timeframes": {
+    "tick": "1s",
+    "1m": "1m",
+    "5m": "5m",
+    "15m": "15m",
+    "30m": "30m",
+    "1h": "1h",
+    "4h": "4h",
+    "1d": "1d",
+    "1w": "1w",
+    "1M": "1M"
+  },
+  
+  "risk_management": {
+    "max_position_size": 10000,
+    "max_daily_loss": 5000,
+    "var_confidence": 0.95,
+    "circuit_breaker_threshold": 0.10,
+    "position_sizing_method": "kelly_criterion",
+    "enable_stop_loss": true,
+    "enable_take_profit": true,
+    "stop_loss_atr_multiplier": 2.0,
+    "take_profit_atr_multiplier": 3.0
+  }
+}
