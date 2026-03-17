@@ -114,9 +114,12 @@ public:
 
 private:
     BacktestConfig config_;
-
+    
     double calculate_slippage(double price, const std::string& side) const;
     double apply_commission(double value) const;
+    std::vector<double> calculate_atr(const std::vector<archneuronx::data::OHLCVBar>& bars, int period) const;
+    void calculate_metrics(BacktestReport& report, const std::vector<archneuronx::data::OHLCVBar>& bars) const;
+    void generate_monthly_returns(BacktestReport& report, const std::vector<archneuronx::data::OHLCVBar>& bars) const;
 };
 
 } // namespace backtest

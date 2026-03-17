@@ -1,0 +1,197 @@
+{
+  "deployment": {
+    "environment": "production",
+    "version": "2.0.0",
+    "build_type": "Release",
+    "cuda_enabled": true,
+    "optimization_level": "O3"
+  },
+  
+  "neural_models": {
+    "ensemble": {
+      "enabled": true,
+      "models": [
+        {
+          "name": "MLP_50_128_64_32",
+          "type": "MLP",
+          "weight": 0.25,
+          "model_path": "models/mlp_traded.pt"
+        },
+        {
+          "name": "CNN_1D_32_64_128",
+          "type": "CNN", 
+          "weight": 0.25,
+          "model_path": "models/cnn_traded.pt"
+        },
+        {
+          "name": "LSTM_128_2L",
+          "type": "LSTM",
+          "weight": 0.25,
+          "model_path": "models/lstm_traded.pt"
+        },
+        {
+          "name": "Transformer_256_8H",
+          "type": "Transformer",
+          "weight": 0.25,
+          "model_path": "models/transformer_traded.pt"
+        }
+      ],
+      "rebalance_frequency": 100,
+      "min_confidence": 0.65,
+      "ab_testing": {
+        "enabled": true,
+        "sample_size": 1000,
+        "significance_level": 0.05
+      }
+    }
+  },
+  
+  "cuda_inference": {
+    "device_id": 0,
+    "memory_pool_size": 2147483648,
+    "max_batch_size": 64,
+    "enable_tensor_cores": true,
+    "enable_fp16": false,
+    "enable_graph_capture": true,
+    "stream_count": 4,
+    "warmup_iterations": 20
+  },
+  
+  "trading_engine": {
+    "max_position_size": 50000,
+    "risk_management": {
+      "max_daily_loss": 10000,
+      "var_confidence": 0.95,
+      "position_sizing": "kelly",
+      "max_leverage": 3.0,
+      "circuit_breakers": {
+        "enabled": true,
+        "max_drawdown": 0.15,
+        "consecutive_losses": 5
+      }
+    },
+    "execution": {
+      "slippage_model": "dynamic",
+      "commission_rate": 0.001,
+      "min_order_size": 10,
+      "execution_timeout_ms": 5000
+    }
+  },
+  
+  "data_pipeline": {
+    "aggregation": {
+      "method": "weighted_average",
+      "min_sources": 3,
+      "outlier_detection": true,
+      "quality_scoring": true
+    },
+    "preprocessing": {
+      "normalization": "z_score",
+      "feature_engineering": true,
+      "technical_indicators": [
+        "RSI", "MACD", "BB", "ATR", "SMA", "EMA"
+      ]
+    },
+    "real_time": {
+      "update_frequency_ms": 100,
+      "buffer_size": 1000,
+      "staleness_threshold_ms": 5000
+    }
+  },
+  
+  "monitoring": {
+    "metrics": {
+      "inference_latency_us": true,
+      "gpu_utilization": true,
+      "memory_usage": true,
+      "trade_execution_time": true,
+      "model_accuracy": true
+    },
+    "alerts": {
+      "slack_webhook": "${SLACK_WEBHOOK}",
+      "email_smtp": "${SMTP_SERVER}",
+      "alert_conditions": [
+        "high_latency",
+        "gpu_memory_full",
+        "model_drift",
+        "excessive_drawdown"
+      ]
+    },
+    "prometheus": {
+      "enabled": true,
+      "port": 9090,
+      "metrics_path": "/metrics"
+    }
+  },
+  
+  "backtesting": {
+    "walk_forward": {
+      "enabled": true,
+      "train_window": 1000,
+      "test_window": 200,
+      "step_size": 100,
+      "min_windows": 5
+    },
+    "validation": {
+      "cross_validation": true,
+      "folds": 5,
+      "bootstrap_samples": 1000
+    },
+    "risk_metrics": [
+      "sharpe_ratio",
+      "sortino_ratio", 
+      "calmar_ratio",
+      "max_drawdown",
+      "var_95",
+      "expected_shortfall"
+    ]
+  },
+  
+  "logging": {
+    "level": "info",
+    "structured": true,
+    "outputs": [
+      "file",
+      "console",
+      "elasticsearch"
+    ],
+    "rotation": {
+      "max_size_mb": 500,
+      "max_files": 10,
+      "compress": true
+    }
+  },
+  
+  "security": {
+    "api_keys": {
+      "rotation_enabled": true,
+      "rotation_interval_hours": 24
+    },
+    "encryption": {
+      "at_rest": true,
+      "in_transit": true,
+      "algorithm": "AES-256-GCM"
+    },
+    "access_control": {
+      "ip_whitelist": [],
+      "rate_limiting": {
+        "requests_per_minute": 1000,
+        "burst_limit": 100
+      }
+    }
+  },
+  
+  "performance": {
+    "optimization": {
+      "vectorization": true,
+      "parallel_processing": true,
+      "memory_alignment": true,
+      "cache_optimization": true
+    },
+    "benchmarking": {
+      "enabled": true,
+      "test_data_size": 10000,
+      "iterations": 100
+    }
+  }
+}

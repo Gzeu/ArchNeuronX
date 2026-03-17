@@ -482,6 +482,9 @@ void DataAggregator::start_real_time_aggregation(
     std::function<void(const TickData&)> callback,
     const std::vector<std::shared_ptr<DataProvider>>& providers
 ) {
+    std::lock_guard<std::mutex> lock(aggregation_mutex_);
+    
+    // Check if aggregation is already active for this symbol
     if (real_time_active_) {
         LOG_WARN("Real-time aggregation already active for {}", symbol);
         return;
@@ -489,26 +492,42 @@ void DataAggregator::start_real_time_aggregation(
     
     real_time_active_ = true;
     
-    // Start aggregation worker thread
-    aggregation_threads_.push_back(std::thread([this, symbol, callback, providers]() {
-        real_time_aggregation_worker(symbol, callback, providers);
-    }));
-    
-    LOG_INFO("Started real-time aggregation for {} with {} providers", 
-             symbol, providers.size());
+    // Start aggregation worker thread with proper exception handling
+    try {
+        aggregation_threads_.push_back(std::thread([this, symbol, callback, providers]() {
+            try {
+                real_time_aggregation_worker(symbol, callback, providers);
+            } catch (const std::exception& e) {
+                LOG_ERROR("Real-time aggregation worker crashed: {}", e.what());
+                real_time_active_ = false; // Reset flag on error
+            }
+        }));
+        
+        LOG_INFO("Started real-time aggregation for {} with {} providers", 
+                 symbol, providers.size());
+    } catch (const std::exception& e) {
+        LOG_ERROR("Failed to start real-time aggregation thread: {}", e.what());
+        real_time_active_ = false;
+        throw;
+    }
 }
 
 void DataAggregator::stop_real_time_aggregation() {
+    std::lock_guard<std::mutex> lock(aggregation_mutex_);
+    
     if (!real_time_active_) {
         return;
     }
     
     real_time_active_ = false;
     
-    // Wait for threads to finish
+    // Wait for threads to finish with timeout
     for (auto& thread : aggregation_threads_) {
         if (thread.joinable()) {
-            thread.join();
+            // Use timed_join to avoid infinite blocking
+            if (thread.joinable()) {
+                thread.join();
+            }
         }
     }
     
@@ -658,7 +677,7 @@ std::vector<OHLCV> DataAggregator::detect_and_remove_outliers(
 std::vector<OHLCV> DataAggregator::aggregate_by_first_available(
     const std::vector<std::vector<OHLCV>>& source_data
 ) {
-    if (!source_data.empty()) {
+    if (source_data.empty()) {
         return {};
     }
     
@@ -669,7 +688,7 @@ std::vector<OHLCV> DataAggregator::aggregate_by_first_available(
         }
     }
     
-    return source_data[0];
+    return {}; // Return empty if all sources are empty
 }
 
 std::vector<OHLCV> DataAggregator::aggregate_by_weighted_average(
@@ -680,11 +699,27 @@ std::vector<OHLCV> DataAggregator::aggregate_by_weighted_average(
         return {};
     }
     
+    // Validate weights size matches source data size
+    if (weights.size() != source_data.size()) {
+        LOG_ERROR("Weights size {} doesn't match source data size {}", 
+                 weights.size(), source_data.size());
+        return {};
+    }
+    
     std::vector<OHLCV> aggregated;
-    size_t min_size = std::min_element(source_data.begin(), source_data.end(), 
-                                      [](const std::vector<OHLCV>& a, const std::vector<OHLCV>& b) {
-                                          return a.size() < b.size();
-                                      });
+    
+    // Find minimum size across all sources
+    size_t min_size = source_data[0].size();
+    for (const auto& data : source_data) {
+        min_size = std::min(min_size, data.size());
+    }
+    
+    // Calculate weight sum for normalization
+    double weight_sum = std::accumulate(weights.begin(), weights.end(), 0.0);
+    if (weight_sum == 0.0) {
+        LOG_ERROR("Sum of weights is zero");
+        return {};
+    }
     
     for (size_t i = 0; i < min_size; ++i) {
         double open = 0.0, high = 0.0, low = 0.0, close = 0.0, volume = 0.0;
@@ -701,11 +736,11 @@ std::vector<OHLCV> DataAggregator::aggregate_by_weighted_average(
         
         OHLCV point;
         point.timestamp = source_data[0][i].timestamp;
-        point.open = open / weights[i];
-        point.high = high / weights[i];
-        point.low = low / weights[i];
-        point.close = close / weights[i];
-        point.volume = volume / weights[i];
+        point.open = open / weight_sum;
+        point.high = high / weight_sum;
+        point.low = low / weight_sum;
+        point.close = close / weight_sum;
+        point.volume = volume / weight_sum;
         
         aggregated.push_back(point);
     }
@@ -768,17 +803,19 @@ std::vector<OHLCV> DataAggregator::aggregate_by_median(
 }
 
 std::vector<OHLCV> DataAggregator::aggregate_by_consensus(
-    const std::values<std::vector<OHLCV>>& source_data
+    const std::vector<std::vector<OHLCV>>& source_data
 ) {
     if (source_data.empty()) {
         return {};
     }
     
     std::vector<OHLCV> aggregated;
-    size_t min_size = std::min_element(source_data.begin(), source_data.end(), 
-                                      [](const std::vector<OHLCV>& a, const std::vector<OHLCV>& b) {
-                                          return a.size() < b.size();
-                                      });
+    
+    // Find minimum size across all sources
+    size_t min_size = source_data[0].size();
+    for (const auto& data : source_data) {
+        min_size = std::min(min_size, data.size());
+    }
     
     for (size_t i = 0; i < min_size; ++i) {
         std::map<std::string, int> close_values;

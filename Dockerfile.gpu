@@ -1,10 +1,7 @@
-# Lightweight CPU Dockerfile for CI/CD
-FROM ubuntu:22.04
+# Multi-stage Dockerfile for GPU builds
+FROM nvidia/cuda:12.4.1-cudnn9-devel-ubuntu22.04 AS builder
 
-LABEL maintainer="ArchNeuronX Team"
-LABEL version="2.0.0"
-LABEL description="ArchNeuronX - Automated Neural Trading System (CPU version)"
-
+LABEL stage=builder
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
@@ -28,14 +25,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install LibTorch CPU version
+# Install CUDA toolkit
+RUN wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb -O /tmp/cuda-keyring.deb && \
+    dpkg -i /tmp/cuda-keyring.deb && \
+    wget -q https://developer.download.nvidia.com/compute/cuda/12.4.1/local_installers/cuda-repo-ubuntu2204-12-4-local-installer_12.4.1_550.50.05.03_amd64.deb -O /tmp/cuda-installer.deb && \
+    dpkg -i /tmp/cuda-installer.deb && \
+    apt-get update && apt-get install -y cuda-toolkit-12-4 && \
+    rm -f /tmp/cuda-keyring.deb /tmp/cuda-installer.deb
+
+# Install LibTorch with CUDA support
 WORKDIR /opt
-RUN wget -q https://download.pytorch.org/libtorch/whl/cpu/libtorch-cxx11-abi-shared-with-deps-2.6.0%2Bcpu.zip -O libtorch.zip && \
-    unzip -q libtorch-cxx11-abi-shared-with-deps-2.6.0%2Bcpu.zip && \
-    rm libtorch.zip
+RUN wget -q https://download.pytorch.org/libtorch/whl/cu124/libtorch-cxx11-abi-shared-with-deps-2.6.0%2Bcu124.zip && \
+    unzip -q libtorch-cxx11-abi-shared-with-deps-2.6.0%2Bcu124.zip && \
+    rm libtorch-cxx11-abi-shared-with-deps-2.6.0%2Bcu124.zip
 
 ENV Torch_DIR=/opt/libtorch/share/cmake/Torch
 ENV LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH
+ENV CUDA_HOME=/usr/local/cuda-12.4
 
 # Copy source code
 WORKDIR /app
@@ -44,7 +50,7 @@ COPY . .
 # Build ArchNeuronX
 RUN cmake -B build \
     -DCMAKE_BUILD_TYPE=Release \
-    -DUSE_CUDA=OFF \
+    -DUSE_CUDA=ON \
     -DTorch_DIR=/opt/libtorch/share/cmake/Torch \
     -G Ninja \
     && \
@@ -54,11 +60,11 @@ RUN cmake -B build \
 RUN cd build && ctest --output-on-failure --parallel $(nproc)
 
 # Runtime stage
-FROM ubuntu:22.04
+FROM nvidia/cuda:12.4.1-cudnn9-runtime-ubuntu22.04 AS runtime
 
 LABEL maintainer="ArchNeuronX Team"
 LABEL version="2.0.0"
-LABEL description="ArchNeuronX - Automated Neural Trading System (CPU version)"
+LABEL description="ArchNeuronX - Automated Neural Trading System with CUDA acceleration"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -74,14 +80,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy LibTorch runtime libraries
-COPY --from=0 /opt/libtorch/lib/*.so* /usr/local/lib/
-COPY --from=0 /opt/libtorch/share/cmake/Torch /usr/local/lib/cmake/Torch
+COPY --from=builder /opt/libtorch/lib/*.so* /usr/local/lib/
+COPY --from=builder /opt/libtorch/share/cmake/Torch /usr/local/lib/cmake/Torch
 
 # Copy compiled binary
-COPY --from=0 /app/build/archneuronx /usr/local/bin/archneuronx
+COPY --from=builder /app/build/archneuronx /usr/local/bin/archneuronx
 
 # Copy configuration files
-COPY --from=0 /app/config /etc/archneuronx/config
+COPY --from=builder /app/config /etc/archneuronx/config
 
 # Create non-root user
 RUN groupadd -r archneuronx && useradd -r -g archneuronx -d /app -s /sbin/nologin

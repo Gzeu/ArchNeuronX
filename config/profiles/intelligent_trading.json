@@ -1,0 +1,212 @@
+{
+  "profile_name": "intelligent_trading",
+  "description": "Profil de trading inteligent cu OpenCLaw - configurare pentru performanță maximă",
+  "environment": "production",
+  
+  "data_providers": {
+    "binance": {
+      "enabled": true,
+      "use_testnet": false,
+      "rate_limits": {
+        "requests_per_second": 50,
+        "requests_per_minute": 1200
+      },
+      "api_key": "${BINANCE_API_KEY}",
+      "secret_key": "${BINANCE_SECRET_KEY}",
+      "testnet_api_key": "${BINANCE_TESTNET_API_KEY}",
+      "testnet_secret_key": "${BINANCE_TESTNET_SECRET_KEY}"
+    },
+    "coinbase": {
+      "enabled": true,
+      "api_key": "${COINBASE_API_KEY}",
+      "secret_key": "${COINBASE_SECRET_KEY}"
+    },
+    "kraken": {
+      "environment": "production",
+      "api_key": "${KRAKEN_API_KEY}",
+      "secret_key": "${KRAKEN_SECRET_KEY}"
+    },
+    "alpha_vantage": {
+      "enabled": true,
+      "api_key": "${ALPHA_VANTAGE_API_KEY}"
+    },
+    "yahoo_finance": {
+      "enabled": true
+    }
+  },
+  
+  "data_aggregation": {
+    "method": "weighted_average",
+    "min_sources": 3,
+    "max_sources": 5,
+    "enable_quality_scoring": true,
+    "enable_outlier_detection": true,
+    "outlier_threshold": 3.0,
+    "staleness_penalty_minutes": 5.0,
+    "enable_cross_validation": true
+  },
+  
+  "data_manager": {
+    "historical_days": 365,
+    "cache_ttl_minutes": 5,
+    "cache_size_mb": 2048,
+    "update_interval_ms": 1000,
+    "enable_data_validation": true,
+    "enable_persistence": true
+  },
+  
+  "monitoring": {
+    "health_check_interval_seconds": 30,
+    "alert_thresholds": {
+      "latency_ms": 1000,
+      "error_rate_percent": 5.0,
+      "data_gap_minutes": 15
+    },
+    "enable_slack_alerts": true,
+    "enable_email_alerts": true,
+    "enable_prometheus_metrics": true
+  },
+  
+  "trading": {
+    "paper_trading": false,
+    "max_position_size": 100000,
+    "enable_risk_management": true,
+    "simulation_mode": false,
+    "enable_circuit_breakers": true,
+    "max_daily_loss": 5000,
+    "var_confidence": 0.95,
+    "risk_per_trade": 0.02,
+    "position_sizing": "kelly",
+    "max_leverage": 3.0,
+    "enable_dynamic_hedging": true,
+    "trailing_stop_type": "atr",
+    "take_profit_ratio": 2.0,
+    "stop_loss_atr_mult": 2.0
+  },
+  
+  "logging": {
+    "level": "info",
+    "enable_file_logging": true,
+    "enable_console_logging": true,
+    "log_directory": "logs/prod/",
+    "max_log_file_size_mb": 500,
+    "enable_log_rotation": true,
+    "enable_structured_logging": true
+  },
+  
+  "performance": {
+    "enable_profiling": false,
+    "enable_metrics_collection": true,
+    "metrics_export_interval_seconds": 60,
+    "enable_performance_alerts": true
+  },
+  
+  "security": {
+    "enable_api_key_rotation": true,
+    "enable_rate_limiting": true,
+    "enable_request_validation": true,
+    "enable_encryption": true,
+    "session_timeout_minutes": 30
+  },
+  
+  "features": {
+    "enable_test_data": false,
+    "enable_mock_providers": false,
+    "enable_data_simulation": false,
+    "enable_backtesting": true,
+    "enable_portfolio_optimization": true,
+    "enable_automated_trading": true,
+    "enable_risk_monitoring": true
+  },
+  
+  "openclaw_integration": {
+    "enable_smart_order_routing": true,
+    "enable_market_microstructure": true,
+    "enable_adaptive_execution": true,
+    "enable_ml_signal_filtering": true,
+    "enable_regime_detection": true,
+    "max_slippage_bps": 5.0,
+    "min_fill_rate": 0.95,
+    "execution_timeout_ms": 5000,
+    "supported_venues": [
+      "binance", "coinbase", "kraken", "bybit", "okx", "huobi"
+    ]
+  },
+  
+  "neural_models": {
+    "mlp_model_path": "models/mlp_intelligent.pt",
+    "cnn_model_path": "models/cnn_intelligent.pt",
+    "lstm_model_path": "models/lstm_intelligent.pt",
+    "transformer_model_path": "models/transformer_intelligent.pt",
+    "ensemble_weights": {
+      "mlp": 0.30,
+      "cnn": 0.25,
+      "lstm": 0.25,
+      "transformer": 0.20
+    }
+  },
+  
+  "cuda_inference": {
+    "device_id": 0,
+    "memory_pool_size": 2147483648,
+    "max_batch_size": 64,
+    "enable_tensor_cores": true,
+    "enable_fp16": false,
+    "enable_graph_capture": true,
+    "stream_count": 4,
+    "warmup_iterations": 20
+  },
+  
+  "risk_management": {
+    "max_drawdown": 0.15,
+    "var_confidence": 0.95,
+    "max_position_risk": 0.05,
+    "enable_circuit_breakers": true,
+    "portfolio_heatmap_interval_minutes": 5,
+    "correlation_threshold": 0.7,
+    "volatility_lookback_days": 20
+  },
+  
+  "backtesting": {
+    "walk_forward": {
+      "enabled": true,
+      "train_window": 1000,
+      "test_window": 200,
+      "step_size": 100,
+      "min_windows": 5,
+      "enable_monte_carlo": true,
+      "bootstrap_samples": 1000,
+      "enable_regime_analysis": true
+    },
+    "performance_metrics": {
+      "sharpe_ratio_target": 2.0,
+      "sortino_ratio_target": 3.0,
+      "calmar_ratio_target": 1.5,
+      "max_drawdown_target": 0.2,
+      "profit_factor_target": 2.0,
+      "win_rate_target": 0.6
+    }
+  },
+  
+  "alerts": {
+    "slack_webhook": "${SLACK_WEBHOOK}",
+    "email_smtp": "${EMAIL_SMTP}",
+    "enable_discord_alerts": true,
+    "enable_telegram_alerts": true,
+    "critical_thresholds": {
+      "latency_ms": 500,
+      "error_rate_percent": 5.0,
+      "max_drawdown": 0.1,
+      "var_95": 0.05
+    }
+  },
+  
+  "optimization": {
+    "enable_genetic_algorithms": true,
+    "particle_swarm_optimization": true,
+    "bayesian_optimization": true,
+    "reinforcement_learning": true,
+    "online_learning": true,
+    "adaptive_parameters": true
+  }
+}

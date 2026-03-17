@@ -42,14 +42,21 @@ option(USE_TENSORRT "Enable TensorRT optimization" OFF)
 # ============================================================
 find_package(Threads REQUIRED)
 
-# ============================================================
-# CUDA setup (conditional)
-# ============================================================
+# LibTorch for neural networks
+find_package(Torch REQUIRED)
+
+# Optional: CUDA for GPU acceleration
 if(USE_CUDA)
+    find_package(CUDA REQUIRED)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 17)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-    find_package(CUDA REQUIRED)
+    
+    # CUDA capabilities
+    set(CMAKE_CUDA_ARCHITECTURES 75 80 86) # Turing, Ampere, Ada
+    
+    # Add CUDA definitions
+    add_definitions(-DUSE_CUDA)
 endif()
 
 # ============================================================
@@ -62,6 +69,31 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 # Add subdirectories
 # ============================================================
 add_subdirectory(src)
+
+# Main executable
+add_executable(archneuronx
+    src/trading/openclaw_agent.cpp
+    src/trading/openclaw_integration.cpp
+    src/trading/openclaw_integration.hpp
+    src/openclaw/openclaw_core.cpp
+    src/openclaw/openclaw_core.hpp
+)
+
+target_link_libraries(archneuronx 
+    PRIVATE 
+    openclaw_integration
+    openclaw_core
+    ${TORCH_LIBRARIES}
+)
+
+# OpenCLaw Core Library
+add_library(openclaw_core
+    src/openclaw/openclaw_core.cpp
+    src/openclaw/openclaw_core.hpp
+)
+
+target_include_directories(openclaw_core PRIVATE include)
+target_include_directories(openclaw_integration PRIVATE include)
 
 # ============================================================
 # Testing setup
