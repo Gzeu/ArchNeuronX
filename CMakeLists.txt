@@ -70,6 +70,22 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 # ============================================================
 add_subdirectory(src)
 
+# Regime-aware ensemble example executable
+add_executable(regime_aware_example
+    examples/regime_aware_example.cpp
+    src/regime/regime_detector.cpp
+    src/models/regime_aware_ensemble.cpp
+    src/models/ensemble.cpp
+)
+
+target_link_libraries(regime_aware_example 
+    PRIVATE 
+    ${TORCH_LIBRARIES}
+    Threads::Threads
+)
+
+target_include_directories(regime_aware_example PRIVATE include)
+
 # Main executable
 add_executable(archneuronx
     src/trading/openclaw_agent.cpp
