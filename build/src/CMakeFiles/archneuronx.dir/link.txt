@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -flto -fno-fat-lto-objects CMakeFiles/archneuronx.dir/main_simple.cpp.o -o archneuronx 
