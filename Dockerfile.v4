@@ -1,0 +1,164 @@
+# ============================================================
+# ArchNeuronX v4.0 - Market-Dominating Execution Engine
+# CUDA 12.4 + LibTorch 2.6 + Ultra-Low Latency Optimization
+# ============================================================
+
+FROM nvidia/cuda:12.4-devel-ubuntu22.04
+
+LABEL maintainer="ArchNeuronX Team"
+LABEL version="4.0.0"
+LABEL description="ArchNeuronX v4.0 - Market-Dominating Execution Engine with <20μs latency"
+LABEL cuda.version="12.4"
+LABEL libtorch.version="2.6"
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=$PATH:$CUDA_HOME/bin
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64
+
+# ============================================================
+# System dependencies for v4.0
+# ============================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    unzip \
+    pkg-config \
+    # Python for LibTorch
+    python3 \
+    python3-pip \
+    python3-dev \
+    # Performance tools
+    linux-perf \
+    htop \
+    numactl \
+    # Security and utilities
+    ca-certificates \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================
+# LibTorch 2.6 installation (CPU + CUDA 12.4)
+# ============================================================
+WORKDIR /opt
+
+# Download LibTorch 2.6 with CUDA 12.4 support
+RUN wget -O libtorch-2.6.0.zip https://download.pytorch.org/libtorch/whl/cu124/torch-2.6.0%2Bcu124-cp310-cp310-linux_x86_64.whl || \
+    wget -O libtorch-2.6.0.zip https://download.pytorch.org/libtorch/whl/cpu/torch-2.6.0%2Bcpu-cp310-cp310-linux_x86_64.whl
+
+# Extract LibTorch
+RUN unzip libtorch-2.6.0.zip && \
+    mv torch /opt/libtorch-2.6 && \
+    rm libtorch-2.6.0.zip
+
+# Set LibTorch environment
+ENV TORCH_HOME=/opt/libtorch-2.6
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TORCH_HOME/lib
+
+# ============================================================
+# Optional: TensorRT 8.x for v4.0 deployment optimization
+# ============================================================
+RUN wget -O nv-tensorrt-runtime.deb https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2204/x86_64/nv-tensorrt-runtime_8.6.1.6-1+cuda12.2_amd64.deb || \
+    echo "TensorRT download failed, continuing without TensorRT"
+
+RUN dpkg -i nv-tensorrt-runtime.deb || \
+    echo "TensorRT installation failed, continuing without TensorRT" && \
+    rm -f nv-tensorrt-runtime.deb || true
+
+# ============================================================
+# ArchNeuronX v4.0 build
+# ============================================================
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Create v4.0 build directory
+RUN mkdir -p build && cd build
+
+# Configure CMake for v4.0 with all optimizations
+RUN cd build && \
+    cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DUSE_CUDA=ON \
+    -DUSE_LIBTORCH_26=ON \
+    -DUSE_TENSORRT=ON \
+    -DBUILD_V4_QUANTUM=ON \
+    -DENABLE_ULTRA_LOW_LATENCY=ON \
+    -DBUILD_BENCHMARKS=ON \
+    -DBUILD_TESTS=ON \
+    -DCMAKE_CUDA_ARCHITECTURES="80;86;89;90" \
+    -DCMAKE_CXX_FLAGS="-O3 -march=native -mavx2 -mfma -mbmi2 -DNDEBUG -funroll-loops" \
+    -DCMAKE_CUDA_FLAGS="-O3 --use_fast_math -Xptxas=-O3 --expt-relaxed-constexpr"
+
+# Build v4.0 with maximum parallelism
+RUN cd build && \
+    make -j$(nproc) archneuronx_v4 v4_quantum_example v4_performance_test
+
+# ============================================================
+# v4.0 Runtime setup
+# ============================================================
+
+# Create non-root user for security
+RUN groupadd -r archneuronx && \
+    useradd -r -g archneuronx -d /app -s /bin/bash archneuronx && \
+    mkdir -p /app/models /app/data /app/logs /app/config && \
+    chown -R archneuronx:archneuronx /app
+
+# Copy v4.0 configuration
+COPY config/v4_production.json /app/config/production.json
+
+# Set permissions
+RUN chown -R archneuronx:archneuronx /app
+
+# Switch to non-root user
+USER archneuronx
+WORKDIR /app
+
+# ============================================================
+# v4.0 Environment variables
+# ============================================================
+ENV ARCHNEURONX_VERSION=4.0.0
+ENV ARCHNEURONX_LOG_LEVEL=info
+ENV ARCHNEURONX_PORT=8080
+ENV ARCHNEURONX_CONFIG_PATH=/app/config/production.json
+ENV CUDA_VISIBLE_DEVICES=0
+ENV CUDA_DEVICE_ORDER=PCI_BUS_ID
+
+# Performance tuning
+ENV OMP_NUM_THREADS=4
+ENV NUMA_POLICY=local
+ENV MALLOC_ARENA_MAX=4
+
+# ============================================================
+# v4.0 Health check
+# ============================================================
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/api/v4/health || exit 1
+
+# ============================================================
+# v4.0 Exposed ports
+# ============================================================
+EXPOSE 8080 9090
+
+# ============================================================
+# v4.0 Entry point
+# ============================================================
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Default command: start v4.0 engine
+CMD ["./build/archneuronx_v4", "--config", "/app/config/production.json", "--port", "8080"]
+
+# ============================================================
+# v4.0 Labels for orchestration
+# ============================================================
+LABEL archneuronx.version="4.0.0" \
+      archneuronx.capabilities="quantum-neural,ultra-low-latency,cuda-12.4" \
+      archneuronx.latency.target="<20μs" \
+      archneuronx.throughput.target="500K+ ops/sec" \
+      archneuronx.optimizations="mixed-precision,cuda-graphs,quantum-attention" \
+      archneuronx.hardware="gpu-required,cuda-12.4,tensor-cores"

@@ -1,0 +1,44 @@
+# Production ArchNeuronX Build
+FROM ubuntu:22.04
+
+LABEL maintainer="ArchNeuronX Team"
+LABEL version="4.0.0"
+LABEL description="ArchNeuronX v4.0 - Market-Dominating Execution Engine"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    ca-certificates \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy source code
+COPY src/ ./src/
+COPY include/ ./include/
+COPY reliability/ ./reliability/
+COPY infrastructure/ ./infrastructure/
+COPY deployment/ ./deployment/
+
+# Build application
+RUN g++ -std=c++20 -O2 -o archneuronx src/main_v4.cpp -pthread -I./include -I./reliability -I./infrastructure -I./deployment
+
+# Create user and directories
+RUN groupadd -r archneuronx && useradd -r -g archneuronx -d /app -s /bin/bash archneuronx && \
+    mkdir -p /app/models /app/data /app/logs && \
+    chown -R archneuronx:archneuronx /app
+
+USER archneuronx
+WORKDIR /app
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["./archneuronx", "server", "--config", "/app/config/production.json", "--port", "8080"]

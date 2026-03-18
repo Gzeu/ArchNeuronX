@@ -1,0 +1,878 @@
+# ============================================================
+# ArchNeuronX v4.0 - GitHub Actions CI/CD Pipeline
+# Automated testing, building, and deployment for <20μs latency
+# ============================================================
+
+name: ArchNeuronX v4.0 CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, v4.0 ]
+    tags: [ 'v4.*' ]
+  pull_request:
+    branches: [ main, develop, v4.0 ]
+  schedule:
+    # Daily performance regression tests
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      performance_test:
+        description: 'Run performance tests'
+        required: false
+        default: false
+        type: boolean
+      security_scan:
+        description: 'Run security scans'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  REGISTRY: docker.io/archneuronx
+  IMAGE_NAME: archneuronx-v4
+  KUBERNETES_NAMESPACE: archneuronx-v4
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+# ============================================================
+# Environment Variables
+# ============================================================
+
+globals:
+  env:
+    GO_VERSION: '1.21'
+    NODE_VERSION: '18'
+    PYTHON_VERSION: '3.11'
+    CUDA_VERSION: '12.4'
+    LIBTORCH_VERSION: '2.6.0'
+    KUBECTL_VERSION: '1.28'
+    HELM_VERSION: '3.13'
+    TERRAFORM_VERSION: '1.5'
+
+# ============================================================
+# Jobs
+# ============================================================
+
+jobs:
+  # ============================================================
+  # Code Quality and Security
+  # ============================================================
+  
+  code-quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    outputs:
+      security-scan-passed: ${{ steps.security.outputs.passed }}
+      quality-scan-passed: ${{ steps.quality.outputs.passed }}
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Cache Go Modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Install Dependencies
+      run: |
+        go mod download
+        npm ci
+        pip install -r requirements-dev.txt
+    
+    - name: Code Formatting Check
+      id: formatting
+      run: |
+        # Go formatting
+        if ! go fmt ./... | grep -q "formatted file"; then
+          echo "go_fmt_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "go_fmt_passed=false" >> $GITHUB_OUTPUT
+        fi
+        
+        # Python formatting
+        if black --check --diff .; then
+          echo "python_fmt_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "python_fmt_passed=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Linting
+      id: linting
+      run: |
+        # Go linting
+        if golangci-lint run --timeout=5m; then
+          echo "go_lint_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "go_lint_passed=false" >> $GITHUB_OUTPUT
+        fi
+        
+        # Python linting
+        if flake8 . --max-line-length=120; then
+          echo "python_lint_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "python_lint_passed=false" >> $GITHUB_OUTPUT
+        fi
+        
+        # JavaScript linting
+        if npm run lint; then
+          echo "js_lint_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "js_lint_passed=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Security Scanning
+      id: security
+      run: |
+        # Go security scanning
+        if gosec ./...; then
+          echo "gosec_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "gosec_passed=false" >> $GITHUB_OUTPUT
+        fi
+        
+        # Python security scanning
+        if bandit -r . -f json -o bandit-report.json; then
+          echo "bandit_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "bandit_passed=false" >> $GITHUB_OUTPUT
+        fi
+        
+        # Dependency scanning
+        if npx audit-ci --moderate; then
+          echo "npm_audit_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "npm_audit_passed=false" >> $GITHUB_OUTPUT
+        fi
+        
+        # Overall security check
+        if [[ "${{ steps.formatting.outputs.go_fmt_passed }}" == "true" && 
+              "${{ steps.linting.outputs.go_lint_passed }}" == "true" && 
+              "${{ steps.security.outputs.gosec_passed }}" == "true" ]]; then
+          echo "passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "passed=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Quality Gate
+      id: quality
+      run: |
+        # Combined quality check
+        if [[ "${{ steps.formatting.outputs.go_fmt_passed }}" == "true" && 
+              "${{ steps.formatting.outputs.python_fmt_passed }}" == "true" && 
+              "${{ steps.linting.outputs.go_lint_passed }}" == "true" && 
+              "${{ steps.linting.outputs.python_lint_passed }}" == "true" && 
+              "${{ steps.linting.outputs.js_lint_passed }}" == "true" ]]; then
+          echo "passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "passed=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Upload Security Reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          npm-audit-report.json
+        retention-days: 30
+
+  # ============================================================
+  # Unit Tests
+  # ============================================================
+  
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: code-quality
+    strategy:
+      matrix:
+        component: [market-transformer, graph-network, order-routing, risk-management, portfolio-optimizer, regime-meta-learner]
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Cache Dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/.cache/pip
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/go.sum', '**/requirements.txt') }}
+    
+    - name: Install Dependencies
+      run: |
+        go mod download
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Run Go Unit Tests
+      run: |
+        cd src/${{ matrix.component }}
+        go test -v -race -coverprofile=coverage.out ./...
+        go tool cover -html=coverage.out -o coverage.html
+    
+    - name: Run Python Unit Tests
+      run: |
+        cd tests/${{ matrix.component }}
+        python -m pytest -v --cov=. --cov-report=xml --cov-report=html
+    
+    - name: Upload Coverage Reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: ${{ matrix.component }}
+        name: ${{ matrix.component }}-coverage
+    
+    - name: Upload Test Artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.component }}-test-results
+        path: |
+          coverage.html
+          htmlcov/
+        retention-days: 7
+
+  # ============================================================
+  # Integration Tests
+  # ============================================================
+  
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.event_name != 'schedule'
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      postgres:
+        image: postgres:14-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: archneuronx_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      kafka:
+        image: confluentinc/cp-kafka:latest
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_ZOOKEEPER_CONNECT: localhost:2181
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        options: >-
+          --health-cmd "kafka-topics --bootstrap-server localhost:9092 --list"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install Dependencies
+      run: |
+        go mod download
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Start Test Environment
+      run: |
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 30
+    
+    - name: Run Integration Tests
+      run: |
+        cd tests/integration
+        python -m pytest -v --tb=short --maxfail=5
+    
+    - name: Run API Tests
+      run: |
+        cd tests/api
+        python -m pytest -v --tb=short --maxfail=5
+    
+    - name: Cleanup Test Environment
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down -v
+
+  # ============================================================
+  # Performance Tests
+  # ============================================================
+  
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    if: github.event_name == 'schedule' || github.event.inputs.performance_test == 'true'
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install Dependencies
+      run: |
+        go mod download
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install locust pytest-benchmark
+    
+    - name: Build Test Binaries
+      run: |
+        make build-test
+    
+    - name: Run Latency Benchmarks
+      run: |
+        cd tests/performance
+        python -m pytest latency_benchmarks.py -v --benchmark-json=latency-results.json
+    
+    - name: Run Throughput Benchmarks
+      run: |
+        cd tests/performance
+        python -m pytest throughput_benchmarks.py -v --benchmark-json=throughput-results.json
+    
+    - name: Run Load Tests
+      run: |
+        cd tests/performance
+        locust -f load_tests.py --headless --users 1000 --spawn-rate 10 --run-time 60s --host http://localhost:8080 --html load-test-report.html
+    
+    - name: Validate Performance Targets
+      run: |
+        python scripts/validate_performance.py \
+          --latency-target 20 \
+          --throughput-target 500000 \
+          --latency-results latency-results.json \
+          --throughput-results throughput-results.json
+    
+    - name: Upload Performance Reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-reports
+        path: |
+          latency-results.json
+          throughput-results.json
+          load-test-report.html
+        retention-days: 30
+
+  # ============================================================
+  # Build Docker Images
+  # ============================================================
+  
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: github.event_name != 'pull_request'
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    strategy:
+      matrix:
+        component: [market-transformer, graph-network, order-routing, risk-management, portfolio-optimizer, regime-meta-learner, data-ingestion, config-service, auth-service, monitoring-service]
+        include:
+          - component: market-transformer
+            cuda: true
+            base-image: nvidia/cuda:12.4-devel-ubuntu22.04
+          - component: graph-network
+            cuda: false
+            base-image: ubuntu:22.04
+          - component: order-routing
+            cuda: false
+            base-image: ubuntu:22.04
+          - component: risk-management
+            cuda: false
+            base-image: ubuntu:22.04
+          - component: portfolio-optimizer
+            cuda: false
+            base-image: ubuntu:22.04
+          - component: regime-meta-learner
+            cuda: true
+            base-image: nvidia/cuda:12.4-devel-ubuntu22.04
+          - component: data-ingestion
+            cuda: false
+            base-image: ubuntu:22.04
+          - component: config-service
+            cuda: false
+            base-image: ubuntu:22.04
+          - component: auth-service
+            cuda: false
+            base-image: ubuntu:22.04
+          - component: monitoring-service
+            cuda: false
+            base-image: ubuntu:22.04
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Extract Metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ matrix.component }}-v4
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and Push Docker Image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./docker/Dockerfile.${{ matrix.component }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        build-args: |
+          BASE_IMAGE=${{ matrix.base-image }}
+          CUDA_VERSION=${{ env.CUDA_VERSION }}
+          LIBTORCH_VERSION=${{ env.LIBTORCH_VERSION }}
+          COMPONENT=${{ matrix.component }}
+          VERSION=${{ steps.meta.outputs.version }}
+        secrets: |
+          GIT_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ matrix.component }}-v4@${{ steps.build.outputs.digest }}
+        format: spdx-json
+        output-file: sbom-${{ matrix.component }}.json
+    
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v3
+      with:
+        name: sbom-${{ matrix.component }}
+        path: sbom-${{ matrix.component }}.json
+        retention-days: 90
+
+  # ============================================================
+  # Security Scanning
+  # ============================================================
+  
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: github.event.inputs.security_scan == 'true' || github.event_name == 'push'
+    
+    steps:
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy Results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Run Container Security Scan
+      uses: Azure/container-scan@v0
+      with:
+        image-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  # ============================================================
+  # Deploy to Staging
+  # ============================================================
+  
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-images, security-scan]
+    if: github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'staging'
+    environment: staging
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: ${{ env.KUBECTL_VERSION }}
+    
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: ${{ env.HELM_VERSION }}
+    
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+    
+    - name: Add Helm Repositories
+      run: |
+        helm repo add bitnami https://charts.bitnami.com/bitnami
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo add grafana https://grafana.github.io/helm-charts
+        helm repo add neo4j https://helm.neo4j.com/neo4j
+        helm repo update
+    
+    - name: Deploy Infrastructure Dependencies
+      run: |
+        helm upgrade --install archneuronx-v4-infra \
+          infrastructure/helm/archneuronx-v4 \
+          --namespace archneuronx-v4-staging \
+          --create-namespace \
+          --values infrastructure/helm/archneuronx-v4/values-staging.yaml \
+          --set redis.enabled=true \
+          --set kafka.enabled=true \
+          --set influxdb.enabled=true \
+          --set neo4j.enabled=true \
+          --set mongodb.enabled=true \
+          --wait \
+          --timeout 10m
+    
+    - name: Deploy Applications
+      run: |
+        helm upgrade --install archneuronx-v4 \
+          infrastructure/helm/archneuronx-v4 \
+          --namespace archneuronx-v4-staging \
+          --values infrastructure/helm/archneuronx-v4/values-staging.yaml \
+          --set global.imageRegistry=${{ env.REGISTRY }} \
+          --set global.environment=staging \
+          --set services.marketTransformer.enabled=true \
+          --set services.graphNetwork.enabled=true \
+          --set services.orderRouting.enabled=true \
+          --set services.riskManagement.enabled=true \
+          --set services.portfolioOptimizer.enabled=true \
+          --set services.regimeMetaLearner.enabled=true \
+          --wait \
+          --timeout 15m
+    
+    - name: Run Health Checks
+      run: |
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=archneuronx-v4 -n archneuronx-v4-staging --timeout=300s
+        kubectl get pods -n archneuronx-v4-staging
+        kubectl get services -n archneuronx-v4-staging
+    
+    - name: Run Smoke Tests
+      run: |
+        cd tests/smoke
+        python -m pytest -v --base-url=https://archneuronx-staging.example.com
+
+  # ============================================================
+  # Deploy to Production
+  # ============================================================
+  
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-images, security-scan, deploy-staging]
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production'
+    environment: production
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: ${{ env.KUBECTL_VERSION }}
+    
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: ${{ env.HELM_VERSION }}
+    
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+    
+    - name: Add Helm Repositories
+      run: |
+        helm repo add bitnami https://charts.bitnami.com/bitnami
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo add grafana https://grafana.github.io/helm-charts
+        helm repo add neo4j https://helm.neo4j.com/neo4j
+        helm repo update
+    
+    - name: Deploy with Canary Strategy
+      run: |
+        # Deploy canary
+        helm upgrade --install archneuronx-v4-canary \
+          infrastructure/helm/archneuronx-v4 \
+          --namespace archneuronx-v4-canary \
+          --create-namespace \
+          --values infrastructure/helm/archneuronx-v4/values-canary.yaml \
+          --set global.imageRegistry=${{ env.REGISTRY }} \
+          --set global.environment=production-canary \
+          --wait \
+          --timeout 10m
+        
+        # Wait for canary to be ready
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=archneuronx-v4 -n archneuronx-v4-canary --timeout=300s
+        
+        # Run canary tests
+        cd tests/canary
+        python -m pytest -v --base-url=https://archneuronx-canary.example.com
+        
+        # Promote to production
+        helm upgrade --install archneuronx-v4 \
+          infrastructure/helm/archneuronx-v4 \
+          --namespace archneuronx-v4 \
+          --values infrastructure/helm/archneuronx-v4/values-production.yaml \
+          --set global.imageRegistry=${{ env.REGISTRY }} \
+          --set global.environment=production \
+          --wait \
+          --timeout 15m
+    
+    - name: Run Production Health Checks
+      run: |
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=archneuronx-v4 -n archneuronx-v4 --timeout=300s
+        kubectl get pods -n archneuronx-v4
+        kubectl get services -n archneuronx-v4
+    
+    - name: Run Production Smoke Tests
+      run: |
+        cd tests/smoke
+        python -m pytest -v --base-url=https://archneuronx.example.com
+    
+    - name: Cleanup Canary
+      if: always()
+      run: |
+        helm uninstall archneuronx-v4-canary -n archneuronx-v4-canary
+        kubectl delete namespace archneuronx-v4-canary --ignore-not-found=true
+
+  # ============================================================
+  # Post-Deployment Tests
+  # ============================================================
+  
+  post-deployment-tests:
+    name: Post-Deployment Tests
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production'
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install Dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Run End-to-End Tests
+      run: |
+        cd tests/e2e
+        python -m pytest -v --base-url=https://archneuronx.example.com --timeout=300
+    
+    - name: Run Performance Validation
+      run: |
+        cd tests/performance
+        python -m pytest performance_validation.py -v \
+          --base-url=https://archneuronx.example.com \
+          --latency-target 20 \
+          --throughput-target 500000
+    
+    - name: Generate Deployment Report
+      run: |
+        python scripts/generate_deployment_report.py \
+          --environment production \
+          --version ${{ github.sha }} \
+          --output deployment-report.json
+    
+    - name: Upload Deployment Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-report
+        path: deployment-report.json
+        retention-days: 90
+
+  # ============================================================
+  # Notification
+  # ============================================================
+  
+  notify:
+    name: Notification
+    runs-on: ubuntu-latest
+    needs: [post-deployment-tests]
+    if: always()
+    
+    steps:
+    - name: Notify Slack on Success
+      if: needs.post-deployment-tests.result == 'success'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#deployments'
+        text: '🚀 ArchNeuronX v4.0 deployed successfully to production!'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    
+    - name: Notify Slack on Failure
+      if: needs.post-deployment-tests.result == 'failure'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#deployments'
+        text: '❌ ArchNeuronX v4.0 deployment failed!'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    
+    - name: Send Email Notification
+      if: always()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "ArchNeuronX v4.0 Deployment ${{ needs.post-deployment-tests.result == 'success' && 'Success' || 'Failed' }}"
+        body: |
+          Deployment Status: ${{ needs.post-deployment-tests.result == 'success' && 'Success' || 'Failed' }}
+          Commit: ${{ github.sha }}
+          Branch: ${{ github.ref_name }}
+          Environment: Production
+          Time: ${{ github.event.head_commit.timestamp }}
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: ${{ secrets.EMAIL_FROM }}
+
+# ============================================================
+# Workflow Rules
+# ============================================================
+
+# Prevent concurrent deployments
+concurrency:
+  group: deployment
+  cancel-in-progress: true
+
+# ============================================================
+# Workflow Outputs
+# ============================================================
+
+outputs:
+  deployment-status:
+    description: "Deployment status"
+    value: ${{ jobs.post-deployment-tests.result }}
+  
+  image-tag:
+    description: "Docker image tag"
+    value: ${{ jobs.build-images.outputs.image-tag }}

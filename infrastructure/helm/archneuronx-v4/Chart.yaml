@@ -1,0 +1,101 @@
+# ============================================================
+# ArchNeuronX v4.0 - Helm Chart
+# Complete application deployment for microservices architecture
+# ============================================================
+
+apiVersion: v2
+name: archneuronx-v4
+description: ArchNeuronX v4.0 - Market-Dominating Execution Engine
+type: application
+version: 4.0.0
+appVersion: "4.0.0"
+
+keywords:
+  - trading
+  - ai
+  - machine-learning
+  - high-frequency-trading
+  - low-latency
+  - microservices
+  - kubernetes
+
+home: https://github.com/Gzeu/ArchNeuronX
+sources:
+  - https://github.com/Gzeu/ArchNeuronX
+  - https://github.com/Gzeu/ArchNeuronX/tree/main/infrastructure/helm/archneuronx-v4
+
+maintainers:
+  - name: ArchNeuronX Team
+    email: team@archneuronx.com
+
+dependencies:
+  # Infrastructure Dependencies
+  - name: redis
+    version: "17.3.2"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: kafka
+    version: "22.1.5"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: kafka.enabled
+  - name: influxdb
+    version: "2.1.1"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: influxdb.enabled
+  - name: neo4j
+    version: "5.12.0"
+    repository: "https://helm.neo4j.com/neo4j"
+    condition: neo4j.enabled
+  - name: mongodb
+    version: "13.18.5"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: mongodb.enabled
+  
+  # Monitoring Dependencies
+  - name: prometheus
+    version: "23.1.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: prometheus.enabled
+  - name: grafana
+    version: "6.58.9"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: grafana.enabled
+  - name: jaeger
+    version: "0.71.0"
+    repository: "https://jaegertracing.github.io/helm-charts"
+    condition: jaeger.enabled
+  
+  # Service Mesh
+  - name: istiod
+    version: "1.19.0"
+    repository: "https://istio-release.storage.googleapis.com/charts"
+    condition: istio.enabled
+  - name: istio-ingress
+    version: "1.19.0"
+    repository: "https://istio-release.storage.googleapis.com/charts"
+    condition: istio.enabled
+
+annotations:
+  category: Analytics
+  licenses: MIT
+  images: |
+    - name: market-transformer-v4
+      image: archneuronx/market-transformer:v4.0.0
+    - name: graph-network-v4
+      image: archneuronx/graph-network:v4.0.0
+    - name: order-routing-v4
+      image: archneuronx/order-routing:v4.0.0
+    - name: risk-management-v4
+      image: archneuronx/risk-management:v4.0.0
+    - name: portfolio-optimizer-v4
+      image: archneuronx/portfolio-optimizer:v4.0.0
+    - name: regime-meta-learner-v4
+      image: archneuronx/regime-meta-learner:v4.0.0
+    - name: data-ingestion-v4
+      image: archneuronx/data-ingestion:v4.0.0
+    - name: config-service-v4
+      image: archneuronx/config-service:v4.0.0
+    - name: auth-service-v4
+      image: archneuronx/auth-service:v4.0.0
+    - name: monitoring-service-v4
+      image: archneuronx/monitoring-service:v4.0.0

@@ -1,0 +1,680 @@
+# ============================================================
+# ArchNeuronX v4.0 - ArgoCD Application
+# GitOps deployment for continuous delivery
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: archneuronx-v4
+  namespace: argocd
+  labels:
+    app: archneuronx-v4
+    environment: production
+    version: v4.0
+  annotations:
+    argocd.argoproj.io/sync-options: CreateNamespace=true
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/Gzeu/ArchNeuronX.git
+    targetRevision: main
+    path: infrastructure/helm/archneuronx-v4
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-production.yaml
+      parameters:
+      - name: global.imageRegistry
+        value: "docker.io/archneuronx"
+      - name: global.environment
+        value: "production"
+      - name: services.marketTransformer.replicaCount
+        value: "20"
+      - name: services.graphNetwork.replicaCount
+        value: "10"
+      - name: services.orderRouting.replicaCount
+        value: "16"
+      - name: services.riskManagement.replicaCount
+        value: "12"
+      - name: services.portfolioOptimizer.replicaCount
+        value: "8"
+      - name: services.regimeMetaLearner.replicaCount
+        value: "6"
+      - name: autoscaling.enabled
+        value: "true"
+      - name: monitoring.enabled
+        value: "true"
+      - name: istio.enabled
+        value: "true"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: archneuronx-v4
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/name: archneuronx-v4
+        app.kubernetes.io/part-of: archneuronx
+        environment: production
+        version: v4.0
+      annotations:
+        argocd.argoproj.io/managed-by: argocd
+  
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas
+  - group: autoscaling
+    kind: HorizontalPodAutoscaler
+    jsonPointers:
+    - /spec/minReplicas
+    - /spec/maxReplicas
+  
+  revisionHistoryLimit: 10
+
+---
+# ============================================================
+# Infrastructure Dependencies Application
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: archneuronx-v4-infrastructure
+  namespace: argocd
+  labels:
+    app: archneuronx-v4-infrastructure
+    environment: production
+    version: v4.0
+  annotations:
+    argocd.argoproj.io/sync-options: CreateNamespace=true
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/Gzeu/ArchNeuronX.git
+    targetRevision: main
+    path: infrastructure/terraform
+    kustomize:
+      images:
+      - name: terraform
+        newTag: "1.5.0"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: archneuronx-v4-infrastructure
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    - RespectIgnoreDifferences=true
+
+---
+# ============================================================
+# Monitoring Application
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: archneuronx-v4-monitoring
+  namespace: argocd
+  labels:
+    app: archneuronx-v4-monitoring
+    environment: production
+    version: v4.0
+  annotations:
+    argocd.argoproj.io/sync-options: CreateNamespace=true
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/Gzeu/ArchNeuronX.git
+    targetRevision: main
+    path: infrastructure/monitoring
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-production.yaml
+      parameters:
+      - name: prometheus.enabled
+        value: "true"
+      - name: grafana.enabled
+        value: "true"
+      - name: jaeger.enabled
+        value: "true"
+      - name: alertmanager.enabled
+        value: "true"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    - RespectIgnoreDifferences=true
+
+---
+# ============================================================
+# Service Mesh Application
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: archneuronx-v4-service-mesh
+  namespace: argocd
+  labels:
+    app: archneuronx-v4-service-mesh
+    environment: production
+    version: v4.0
+  annotations:
+    argocd.argoproj.io/sync-options: CreateNamespace=true
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/Gzeu/ArchNeuronX.git
+    targetRevision: main
+    path: infrastructure/service-mesh
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-production.yaml
+      parameters:
+      - name: istio.enabled
+        value: "true"
+      - name: kiali.enabled
+        value: "true"
+      - name: istiod.enabled
+        value: "true"
+      - name: ingress.enabled
+        value: "true"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    - RespectIgnoreDifferences=true
+
+---
+# ============================================================
+# Application Project
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: archneuronx-v4
+  namespace: argocd
+  labels:
+    app: archneuronx-v4
+    environment: production
+    version: v4.0
+spec:
+  description: "ArchNeuronX v4.0 - Market-Dominating Execution Engine"
+  
+  sourceRepos:
+  - https://github.com/Gzeu/ArchNeuronX.git
+  - https://charts.bitnami.com/bitnami
+  - https://prometheus-community.github.io/helm-charts
+  - https://grafana.github.io/helm-charts
+  - https://jaegertracing.github.io/helm-charts
+  - https://istio-release.storage.googleapis.com/charts
+  - https://helm.neo4j.com/neo4j
+  
+  destinations:
+  - name: in-cluster
+    server: https://kubernetes.default.svc
+    namespaces:
+    - archneuronx-v4
+    - archneuronx-v4-infrastructure
+    - monitoring
+    - istio-system
+    - kube-system
+  
+  clusterResourceWhitelist:
+  - group: ""
+    kinds:
+    - Namespace
+    - ResourceQuota
+    - LimitRange
+    - PriorityClass
+    - NetworkPolicy
+    - PodSecurityPolicy
+  - group: apiextensions.k8s.io
+    kinds:
+    - CustomResourceDefinition
+  - group: rbac.authorization.k8s.io
+    kinds:
+    - Role
+    - RoleBinding
+    - ClusterRole
+    - ClusterRoleBinding
+    - ServiceAccount
+  - group: apps
+    kinds:
+    - Deployment
+    - StatefulSet
+    - DaemonSet
+    - ReplicaSet
+  - group: autoscaling
+    kinds:
+    - HorizontalPodAutoscaler
+    - VerticalPodAutoscaler
+  - group: batch
+    kinds:
+    - Job
+    - CronJob
+  - group: networking.k8s.io
+    kinds:
+    - Ingress
+    - Service
+    - Endpoint
+    - EndpointSlice
+  - group: policy
+    kinds:
+    - PodDisruptionBudget
+  - group: extensions
+    kinds:
+    - Ingress
+  
+  orphanedResources:
+    warn: true
+  
+  roles:
+  - name: archneuronx-admin
+    description: "Full access to ArchNeuronX v4.0 resources"
+    policies:
+    - p, proj:archneuronx-v4, applications, *, archneuronx-v4/*, allow
+    - p, proj:archneuronx-v4, applications, *, archneuronx-v4-infrastructure/*, allow
+    - p, proj:archneuronx-v4, applications, *, archneuronx-v4-monitoring/*, allow
+    - p, proj:archneuronx-v4, applications, *, archneuronx-v4-service-mesh/*, allow
+    - p, proj:archneuronx-v4, applications, sync, archneuronx-v4/*, allow
+    - p, proj:archneuronx-v4, applications, override, archneuronx-v4/*, allow
+    - p, proj:archneuronx-v4, applications, action, archneuronx-v4/*, allow
+    groups:
+    - argocd-users
+    - argocd-admins
+  
+  - name: archneuronx-readonly
+    description: "Read-only access to ArchNeuronX v4.0 resources"
+    policies:
+    - p, proj:archneuronx-v4, applications, get, archneuronx-v4/*, allow
+    - p, proj:archneuronx-v4, applications, get, archneuronx-v4-infrastructure/*, allow
+    - p, proj:archneuronx-v4, applications, get, archneuronx-v4-monitoring/*, allow
+    - p, proj:archneuronx-v4, applications, get, archneuronx-v4-service-mesh/*, allow
+    groups:
+    - argocd-users
+  
+  syncWindows:
+  - kind: allow
+    schedule: "0 2 * * *"  # 2 AM UTC
+    duration: "1h"
+    applications:
+    - archneuronx-v4-infrastructure
+    - archneuronx-v4-service-mesh
+    manualSync: true
+  - kind: allow
+    schedule: "0 3 * * *"  # 3 AM UTC
+    duration: "2h"
+    applications:
+    - archneuronx-v4
+    - archneuronx-v4-monitoring
+    manualSync: false
+  - kind: deny
+    schedule: "0 9-17 * * 1-5"  # Business hours Monday-Friday
+    duration: "8h"
+    namespaces:
+    - archneuronx-v4
+    - archneuronx-v4-infrastructure
+    - archneuronx-v4-monitoring
+    - istio-system
+
+---
+# ============================================================
+# ApplicationSet for Multi-Environment Deployment
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: archneuronx-v4-multi-env
+  namespace: argocd
+  labels:
+    app: archneuronx-v4-multi-env
+    environment: production
+    version: v4.0
+spec:
+  generators:
+  - git:
+      repoURL: https://github.com/Gzeu/ArchNeuronX.git
+      revision: HEAD
+      directories:
+      - path: infrastructure/environments/*
+  
+  template:
+    metadata:
+      name: "archneuronx-v4-{{path.basename}}"
+      namespace: argocd
+      labels:
+        app: archneuronx-v4-{{path.basename}}
+        environment: "{{path.basename}}"
+        version: v4.0
+      annotations:
+        argocd.argoproj.io/sync-options: CreateNamespace=true
+    
+    spec:
+      project: archneuronx-v4
+      
+      source:
+        repoURL: https://github.com/Gzeu/ArchNeuronX.git
+        targetRevision: HEAD
+        path: "infrastructure/environments/{{path.basename}}"
+        helm:
+          valueFiles:
+          - values.yaml
+          - "values-{{path.basename}}.yaml"
+          parameters:
+          - name: global.environment
+            value: "{{path.basename}}"
+          - name: global.imageRegistry
+            value: "docker.io/archneuronx"
+          - name: global.version
+            value: "v4.0"
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "archneuronx-v4-{{path.basename}}"
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+        - CreateNamespace=true
+        - PrunePropagationPolicy=foreground
+        - PruneLast=true
+        - RespectIgnoreDifferences=true
+        
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+---
+# ============================================================
+# Rollout Strategy with Progressive Delivery
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: archneuronx-v4-canary
+  namespace: argocd
+  labels:
+    app: archneuronx-v4-canary
+    environment: production
+    version: v4.0
+    rollout: canary
+  annotations:
+    argocd.argoproj.io/sync-options: CreateNamespace=true
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/Gzeu/ArchNeuronX.git
+    targetRevision: main
+    path: infrastructure/helm/archneuronx-v4
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-canary.yaml
+      parameters:
+      - name: global.environment
+        value: "production-canary"
+      - name: services.marketTransformer.replicaCount
+        value: "2"
+      - name: services.graphNetwork.replicaCount
+        value: "1"
+      - name: services.orderRouting.replicaCount
+        value: "2"
+      - name: services.riskManagement.replicaCount
+        value: "1"
+      - name: services.portfolioOptimizer.replicaCount
+        value: "1"
+      - name: services.regimeMetaLearner.replicaCount
+        value: "1"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: archneuronx-v4-canary
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    - RespectIgnoreDifferences=true
+
+---
+# ============================================================
+# Backup and Restore Application
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: archneuronx-v4-backup
+  namespace: argocd
+  labels:
+    app: archneuronx-v4-backup
+    environment: production
+    version: v4.0
+    purpose: backup
+  annotations:
+    argocd.argoproj.io/sync-options: CreateNamespace=true
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/Gzeu/ArchNeuronX.git
+    targetRevision: main
+    path: infrastructure/backup
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-production.yaml
+      parameters:
+      - name: backup.enabled
+        value: "true"
+      - name: backup.schedule
+        value: "0 2 * * *"
+      - name: backup.retention
+        value: "30d"
+      - name: backup.storageClass
+        value: "gp3-encrypted"
+      - name: backup.storageSize
+        value: "1Ti"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: backup
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    - RespectIgnoreDifferences=true
+
+---
+# ============================================================
+# Security and Compliance Application
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: archneuronx-v4-security
+  namespace: argocd
+  labels:
+    app: archneuronx-v4-security
+    environment: production
+    version: v4.0
+    purpose: security
+  annotations:
+    argocd.argoproj.io/sync-options: CreateNamespace=true
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/Gzeu/ArchNeuronX.git
+    targetRevision: main
+    path: infrastructure/security
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-production.yaml
+      parameters:
+      - name: networkPolicies.enabled
+        value: "true"
+      - name: podSecurity.enabled
+        value: "true"
+      - name: rbac.enabled
+        value: "true"
+      - name: secrets.enabled
+        value: "true"
+      - name: serviceAccounts.enabled
+        value: "true"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: archneuronx-v4
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    - RespectIgnoreDifferences=true
+
+---
+# ============================================================
+# Performance Testing Application
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: archneuronx-v4-performance
+  namespace: argocd
+  labels:
+    app: archneuronx-v4-performance
+    environment: staging
+    version: v4.0
+    purpose: performance-testing
+  annotations:
+    argocd.argoproj.io/sync-options: CreateNamespace=true
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/Gzeu/ArchNeuronX.git
+    targetRevision: main
+    path: infrastructure/performance-testing
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-staging.yaml
+      parameters:
+      - name: testing.enabled
+        value: "true"
+      - name: testing.type
+        value: "load"
+      - name: testing.duration
+        value: "1h"
+      - name: testing.concurrency
+        value: "1000"
+      - name: testing.targetLatency
+        value: "20"
+      - name: testing.targetThroughput
+        value: "500000"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: archneuronx-v4-staging
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    - RespectIgnoreDifferences=true

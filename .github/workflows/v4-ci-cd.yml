@@ -1,0 +1,502 @@
+name: ArchNeuronX v4.0 CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, v4.0 ]
+  pull_request:
+    branches: [ main, v4.0 ]
+  release:
+    types: [ published ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: archneuronx-v4
+
+jobs:
+  # ============================================================
+  # Build and Test
+  # ============================================================
+  build-and-test:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          git \
+          wget \
+          curl \
+          unzip \
+          pkg-config \
+          python3-dev \
+          linux-perf \
+          numactl
+
+    - name: Cache LibTorch
+      uses: actions/cache@v3
+      with:
+        path: third_party/libtorch-2.6
+        key: libtorch-2.6-${{ runner.os }}
+        restore-keys: libtorch-2.6-
+
+    - name: Download LibTorch 2.6
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p third_party
+        cd third_party
+        wget -O libtorch.zip https://download.pytorch.org/libtorch/whl/cpu/torch-2.6.0%2Bcpu-cp310-cp310-linux_x86_64.whl || \
+        wget -O libtorch.zip https://download.pytorch.org/libtorch/whl/cu124/torch-2.6.0%2Bcu124-cp310-cp310-linux_x86_64.whl
+        unzip libtorch.zip
+        mv torch libtorch-2.6
+        rm libtorch.zip
+
+    - name: Set version
+      id: version
+      run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DUSE_CUDA=OFF \
+          -DUSE_LIBTORCH_26=ON \
+          -DBUILD_V4_QUANTUM=ON \
+          -DENABLE_ULTRA_LOW_LATENCY=ON \
+          -DBUILD_TESTS=ON \
+          -DBUILD_BENCHMARKS=ON
+
+    - name: Build v4.0
+      run: |
+        cd build
+        make -j$(nproc) archneuronx_v4 v4_quantum_example v4_performance_test
+
+    - name: Run Unit Tests
+      run: |
+        cd build
+        ctest --output-on-failure --parallel $(nproc)
+
+    - name: Run Performance Tests
+      run: |
+        cd build
+        ./v4_performance_test --benchmark --output-json=performance_results.json
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: build/performance_results.json
+
+    - name: Security Scan
+      run: |
+        # Install security scanning tools
+        pip install bandit safety
+        # Run security scans
+        bandit -r src/ -f json -o bandit-report.json
+        safety check --json --output safety-report.json
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  # ============================================================
+  # GPU Build (CUDA 12.4)
+  # ============================================================
+  build-gpu:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/v4.0')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: Dockerfile.v4
+        push: true
+        tags: ${{ needs.build-and-test.outputs.image-tag }}
+        labels: |
+          org.opencontainers.image.title=ArchNeuronX v4.0
+          org.opencontainers.image.description=Market-Dominating Execution Engine
+          org.opencontainers.image.version=${{ needs.build-and-test.outputs.version }}
+          org.opencontainers.image.revision=${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  # ============================================================
+  # Integration Tests
+  # ============================================================
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: archneuronx_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install -r deployment/requirements.txt
+        pip install pytest pytest-asyncio pytest-cov
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: performance-results
+        path: build/
+
+    - name: Run API Integration Tests
+      run: |
+        cd deployment
+        python integration/v4_integration_tests.py --api --performance
+
+    - name: Run Database Integration Tests
+      run: |
+        cd deployment
+        python integration/v4_integration_tests.py --database --performance
+
+    - name: Run End-to-End Tests
+      run: |
+        cd deployment
+        python integration/v4_integration_tests.py --e2e --performance
+
+    - name: Generate Coverage Report
+      run: |
+        pytest --cov=src --cov-report=xml --cov-report=html
+
+    - name: Upload Coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # ============================================================
+  # Security Scanning
+  # ============================================================
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        languages: cpp, python
+
+    - name: Download security reports
+      uses: actions/download-artifact@v3
+      with:
+        name: security-reports
+
+    - name: Process security results
+      run: |
+        python deployment/scripts/process_security_reports.py \
+          --bandit bandit-report.json \
+          --safety safety-report.json \
+          --output security-summary.json
+
+  # ============================================================
+  # Performance Benchmarking
+  # ============================================================
+  performance-benchmark:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/v4.0'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: performance-results
+        path: build/
+
+    - name: Run Performance Benchmarks
+      run: |
+        cd build
+        ./v4_performance_test --comprehensive --output=benchmark_results.json
+
+    - name: Compare with baseline
+      run: |
+        python deployment/scripts/compare_performance.py \
+          --current benchmark_results.json \
+          --baseline deployment/baseline/v4_performance_baseline.json \
+          --output performance_comparison.json
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: |
+          build/benchmark_results.json
+          performance_comparison.json
+
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const results = JSON.parse(fs.readFileSync('performance_comparison.json', 'utf8'));
+          
+          const comment = `
+          ## 🚀 Performance Benchmark Results
+          
+          ### Latency Metrics
+          - **Average Latency**: ${results.latency.avg}μs (Target: <20μs) ${results.latency.avg < 20 ? '✅' : '❌'}
+          - **P99 Latency**: ${results.latency.p99}μs (Target: <50μs) ${results.latency.p99 < 50 ? '✅' : '❌'}
+          
+          ### Throughput Metrics
+          - **Peak Throughput**: ${results.throughput.peak} ops/sec (Target: >500K) ${results.throughput.peak > 500000 ? '✅' : '❌'}
+          - **Sustained Throughput**: ${results.throughput.sustained} ops/sec
+          
+          ### Overall Status
+          ${results.all_targets_met ? '🎉 All v4.0 targets achieved!' : '⚠️ Some targets not met'}
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  # ============================================================
+  # Deploy to Staging
+  # ============================================================
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [build-gpu, integration-tests, security-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: Deploy to staging
+      run: |
+        export KUBECONFIG=kubeconfig
+        cd deployment/k8s/staging
+        kubectl apply -f namespace.yaml
+        kubectl apply -f configmaps.yaml
+        kubectl apply -f secrets.yaml
+        kubectl apply -f deployments.yaml
+        kubectl apply -f services.yaml
+        kubectl apply -f ingress.yaml
+
+    - name: Wait for deployment
+      run: |
+        export KUBECONFIG=kubeconfig
+        kubectl wait --for=condition=available --timeout=300s deployment/archneuronx-v4 -n archneuronx-staging
+
+    - name: Run smoke tests
+      run: |
+        cd deployment
+        python scripts/smoke_tests.py --environment=staging
+
+    - name: Run load tests
+      run: |
+        cd deployment
+        python scripts/load_tests.py --environment=staging --duration=300
+
+  # ============================================================
+  # Deploy to Production
+  # ============================================================
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build-gpu, integration-tests, security-scan, performance-benchmark]
+    if: github.event_name == 'release'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: Blue-Green Deployment
+      run: |
+        export KUBECONFIG=kubeconfig
+        cd deployment/k8s/production
+        ./blue_green_deploy.sh ${{ needs.build-and-test.outputs.version }}
+
+    - name: Health Check
+      run: |
+        export KUBECONFIG=kubeconfig
+        cd deployment
+        python scripts/health_check.py --environment=production --timeout=600
+
+    - name: Run Production Tests
+      run: |
+        cd deployment
+        python scripts/production_tests.py --environment=production
+
+    - name: Update Monitoring
+      run: |
+        cd deployment/monitoring
+        ./update_dashboards.sh --environment=production
+
+    - name: Notify Team
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#deployments'
+        text: '🚀 ArchNeuronX v4.0 deployed to production successfully!'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ============================================================
+  # Rollback (Manual Trigger)
+  # ============================================================
+  rollback:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.rollback == 'true'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: Rollback deployment
+      run: |
+        export KUBECONFIG=kubeconfig
+        cd deployment/k8s/production
+        ./rollback.sh ${{ github.event.inputs.previous_version }}
+
+    - name: Notify Team
+      uses: 8398a7/action-slack@v3
+      with:
+        status: custom
+        channel: '#deployments'
+        text: '🔄 ArchNeuronX v4.0 rollback completed'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

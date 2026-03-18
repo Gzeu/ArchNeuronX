@@ -1,0 +1,631 @@
+# ============================================================
+# ArchNeuronX v4.0 - Prometheus Alerting Rules
+# Comprehensive alerting for <20μs latency and 500K+ orders/sec
+# ============================================================
+
+groups:
+  # ============================================================
+  # Performance Alerts
+  # ============================================================
+  
+  - name: archneuronx.v4.performance
+    rules:
+      # High Latency Alerts
+      - alert: HighLatencyMarketTransformer
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service="market-transformer-v4"}[5m])) > 0.00002
+        for: 2m
+        labels:
+          severity: critical
+          service: market-transformer-v4
+          component: performance
+        annotations:
+          summary: "High latency detected in Market Transformer service"
+          description: "95th percentile latency is {{ $value }}s (target: <20μs)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/latency"
+          dashboard_url: "https://grafana.archneuronx.com/d/market-transformer"
+      
+      - alert: HighLatencyGraphNetwork
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service="graph-network-v4"}[5m])) > 0.00005
+        for: 2m
+        labels:
+          severity: warning
+          service: graph-network-v4
+          component: performance
+        annotations:
+          summary: "High latency detected in Graph Network service"
+          description: "95th percentile latency is {{ $value }}s (target: <50μs)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/latency"
+          dashboard_url: "https://grafana.archneuronx.com/d/graph-network"
+      
+      - alert: HighLatencyOrderRouting
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service="order-routing-v4"}[5m])) > 0.00002
+        for: 2m
+        labels:
+          severity: critical
+          service: order-routing-v4
+          component: performance
+        annotations:
+          summary: "High latency detected in Order Routing service"
+          description: "95th percentile latency is {{ $value }}s (target: <20μs)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/latency"
+          dashboard_url: "https://grafana.archneuronx.com/d/order-routing"
+      
+      - alert: HighLatencyRiskManagement
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service="risk-management-v4"}[5m])) > 0.001
+        for: 2m
+        labels:
+          severity: warning
+          service: risk-management-v4
+          component: performance
+        annotations:
+          summary: "High latency detected in Risk Management service"
+          description: "95th percentile latency is {{ $value }}s (target: <1ms)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/latency"
+          dashboard_url: "https://grafana.archneuronx.com/d/risk-management"
+      
+      - alert: HighLatencyPortfolioOptimizer
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service="portfolio-optimizer-v4"}[5m])) > 0.0002
+        for: 2m
+        labels:
+          severity: warning
+          service: portfolio-optimizer-v4
+          component: performance
+        annotations:
+          summary: "High latency detected in Portfolio Optimizer service"
+          description: "95th percentile latency is {{ $value }}s (target: <200μs)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/latency"
+          dashboard_url: "https://grafana.archneuronx.com/d/portfolio-optimizer"
+      
+      - alert: HighLatencyRegimeMetaLearner
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service="regime-meta-learner-v4"}[5m])) > 0.0001
+        for: 2m
+        labels:
+          severity: warning
+          service: regime-meta-learner-v4
+          component: performance
+        annotations:
+          summary: "High latency detected in Regime Meta-Learner service"
+          description: "95th percentile latency is {{ $value }}s (target: <100μs)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/latency"
+          dashboard_url: "https://grafana.archneuronx.com/d/regime-meta-learner"
+      
+      # Low Throughput Alerts
+      - alert: LowThroughputMarketTransformer
+        expr: rate(http_requests_total{service="market-transformer-v4",status="2xx"}[5m]) < 100000
+        for: 1m
+        labels:
+          severity: critical
+          service: market-transformer-v4
+          component: performance
+        annotations:
+          summary: "Low throughput detected in Market Transformer service"
+          description: "Current throughput is {{ $value }} requests/sec (target: >100K/sec)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/throughput"
+          dashboard_url: "https://grafana.archneuronx.com/d/market-transformer"
+      
+      - alert: LowThroughputOrderRouting
+        expr: rate(http_requests_total{service="order-routing-v4",status="2xx"}[5m]) < 500000
+        for: 1m
+        labels:
+          severity: critical
+          service: order-routing-v4
+          component: performance
+        annotations:
+          summary: "Low throughput detected in Order Routing service"
+          description: "Current throughput is {{ $value }} requests/sec (target: >500K/sec)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/throughput"
+          dashboard_url: "https://grafana.archneuronx.com/d/order-routing"
+      
+      - alert: LowThroughputGraphNetwork
+        expr: rate(http_requests_total{service="graph-network-v4",status="2xx"}[5m]) < 10000
+        for: 1m
+        labels:
+          severity: warning
+          service: graph-network-v4
+          component: performance
+        annotations:
+          summary: "Low throughput detected in Graph Network service"
+          description: "Current throughput is {{ $value }} requests/sec (target: >10K/sec)"
+          runbook_url: "https://runbooks.archneuronx.com/performance/throughput"
+          dashboard_url: "https://grafana.archneuronx.com/d/graph-network"
+
+  # ============================================================
+  # Availability and Health Alerts
+  # ============================================================
+  
+  - name: archneuronx.v4.availability
+    rules:
+      # Service Health Alerts
+      - alert: ServiceDown
+        expr: up{job=~"archneuronx-v4-.*"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 30 seconds"
+          runbook_url: "https://runbooks.archneuronx.com/availability/service-down"
+      
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{service=~"archneuronx-v4-.*",status=~"5.."}[5m]) / rate(http_requests_total{service=~"archneuronx-v4-.*"}[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          component: availability
+        annotations:
+          summary: "High error rate in service {{ $labels.service }}"
+          description: "Error rate is {{ $value | humanizePercentage }} (target: <1%)"
+          runbook_url: "https://runbooks.archneuronx.com/availability/error-rate"
+      
+      - alert: High4xxErrorRate
+        expr: rate(http_requests_total{service=~"archneuronx-v4-.*",status=~"4.."}[5m]) / rate(http_requests_total{service=~"archneuronx-v4-.*"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          component: availability
+        annotations:
+          summary: "High 4xx error rate in service {{ $labels.service }}"
+          description: "4xx error rate is {{ $value | humanizePercentage }} (target: <5%)"
+          runbook_url: "https://runbooks.archneuronx.com/availability/4xx-errors"
+      
+      # Pod Health Alerts
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total{namespace="archneuronx-v4"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: availability
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash looping"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
+          runbook_url: "https://runbooks.archneuronx.com/availability/pod-crash-loop"
+      
+      - alert: PodNotReady
+        expr: kube_pod_status_ready{namespace="archneuronx-v4",condition="true"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: availability
+        annotations:
+          summary: "Pod {{ $labels.pod }} is not ready"
+          description: "Pod {{ $labels.pod }} has been not ready for more than 2 minutes"
+          runbook_url: "https://runbooks.archneuronx.com/availability/pod-not-ready"
+      
+      - alert: HighPodRestartCount
+        expr: kube_pod_container_status_restarts_total{namespace="archneuronx-v4"} > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: availability
+        annotations:
+          summary: "High restart count for pod {{ $labels.pod }}"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times"
+          runbook_url: "https://runbooks.archneuronx.com/availability/pod-restarts"
+
+  # ============================================================
+  # Resource Utilization Alerts
+  # ============================================================
+  
+  - name: archneuronx.v4.resources
+    rules:
+      # CPU Utilization Alerts
+      - alert: HighCPUUtilization
+        expr: rate(container_cpu_usage_seconds_total{namespace="archneuronx-v4"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High CPU utilization in pod {{ $labels.pod }}"
+          description: "CPU utilization is {{ $value }}% (target: <80%)"
+          runbook_url: "https://runbooks.archneuronx.com/resources/cpu"
+      
+      - alert: CriticalCPUUtilization
+        expr: rate(container_cpu_usage_seconds_total{namespace="archneuronx-v4"}[5m]) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: resources
+        annotations:
+          summary: "Critical CPU utilization in pod {{ $labels.pod }}"
+          description: "CPU utilization is {{ $value }}% (target: <95%)"
+          runbook_url: "https://runbooks.archneuronx.com/resources/cpu"
+      
+      # Memory Utilization Alerts
+      - alert: HighMemoryUtilization
+        expr: (container_memory_working_set_bytes{namespace="archneuronx-v4"} / container_spec_memory_limit_bytes{namespace="archneuronx-v4"}) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High memory utilization in pod {{ $labels.pod }}"
+          description: "Memory utilization is {{ $value }}% (target: <80%)"
+          runbook_url: "https://runbooks.archneuronx.com/resources/memory"
+      
+      - alert: CriticalMemoryUtilization
+        expr: (container_memory_working_set_bytes{namespace="archneuronx-v4"} / container_spec_memory_limit_bytes{namespace="archneuronx-v4"}) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: resources
+        annotations:
+          summary: "Critical memory utilization in pod {{ $labels.pod }}"
+          description: "Memory utilization is {{ $value }}% (target: <95%)"
+          runbook_url: "https://runbooks.archneuronx.com/resources/memory"
+      
+      # GPU Utilization Alerts
+      - alert: HighGPUUtilization
+        expr: nvidia_gpu_utilization_gpu{namespace="archneuronx-v4"} > 90
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High GPU utilization on {{ $labels.gpu }}"
+          description: "GPU utilization is {{ $value }}% (target: <90%)"
+          runbook_url: "https://runbooks.archneuronx.com/resources/gpu"
+      
+      - alert: HighGPUMemoryUtilization
+        expr: (nvidia_gpu_memory_used_bytes{namespace="archneuronx-v4"} / nvidia_gpu_memory_total_bytes{namespace="archneuronx-v4"}) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High GPU memory utilization on {{ $labels.gpu }}"
+          description: "GPU memory utilization is {{ $value }}% (target: <80%)"
+          runbook_url: "https://runbooks.archneuronx.com/resources/gpu"
+      
+      # Disk Utilization Alerts
+      - alert: HighDiskUtilization
+        expr: (node_filesystem_size_bytes{mountpoint="/",namespace="archneuronx-v4"} - node_filesystem_free_bytes{mountpoint="/",namespace="archneuronx-v4"}) / node_filesystem_size_bytes{mountpoint="/",namespace="archneuronx-v4"} * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High disk utilization on {{ $labels.instance }}"
+          description: "Disk utilization is {{ $value }}% (target: <80%)"
+          runbook_url: "https://runbooks.archneuronx.com/resources/disk"
+      
+      - alert: CriticalDiskUtilization
+        expr: (node_filesystem_size_bytes{mountpoint="/",namespace="archneuronx-v4"} - node_filesystem_free_bytes{mountpoint="/",namespace="archneuronx-v4"}) / node_filesystem_size_bytes{mountpoint="/",namespace="archneuronx-v4"} * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: resources
+        annotations:
+          summary: "Critical disk utilization on {{ $labels.instance }}"
+          description: "Disk utilization is {{ $value }}% (target: <95%)"
+          runbook_url: "https://runbooks.archneuronx.com/resources/disk"
+
+  # ============================================================
+  # Business Metrics Alerts
+  # ============================================================
+  
+  - name: archneuronx.v4.business
+    rules:
+      # Trading Performance Alerts
+      - alert: LowTradingVolume
+        expr: rate(trading_orders_total{status="filled"}[5m]) < 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Low trading volume detected"
+          description: "Trading volume is {{ $value }} orders/min (target: >1000/min)"
+          runbook_url: "https://runbooks.archneuronx.com/business/trading-volume"
+      
+      - alert: LowFillRate
+        expr: rate(trading_orders_total{status="filled"}[5m]) / rate(trading_orders_total[5m]) < 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Low fill rate detected"
+          description: "Fill rate is {{ $value | humanizePercentage }} (target: >80%)"
+          runbook_url: "https://runbooks.archneuronx.com/business/fill-rate"
+      
+      - alert: HighRejectionRate
+        expr: rate(trading_orders_total{status="rejected"}[5m]) / rate(trading_orders_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          component: business
+        annotations:
+          summary: "High rejection rate detected"
+          description: "Rejection rate is {{ $value | humanizePercentage }} (target: <10%)"
+          runbook_url: "https://runbooks.archneuronx.com/business/rejection-rate"
+      
+      - alert: NegativePNL
+        expr: trading_pnl_total < 0
+        for: 1m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Negative PnL detected"
+          description: "Current PnL is ${{ $value }}"
+          runbook_url: "https://runbooks.archneuronx.com/business/pnl"
+      
+      - alert: HighRiskExposure
+        expr: trading_risk_exposure > 1000000
+        for: 2m
+        labels:
+          severity: critical
+          component: business
+        annotations:
+          summary: "High risk exposure detected"
+          description: "Risk exposure is ${{ $value }} (target: <$1M)"
+          runbook_url: "https://runbooks.archneuronx.com/business/risk-exposure"
+      
+      # Model Performance Alerts
+      - alert: LowModelAccuracy
+        expr: model_accuracy{model=~"archneuronx-v4-.*"} < 0.7
+        for: 10m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Low model accuracy for {{ $labels.model }}"
+          description: "Model accuracy is {{ $value | humanizePercentage }} (target: >70%)"
+          runbook_url: "https://runbooks.archneuronx.com/business/model-accuracy"
+      
+      - alert: ModelDriftDetected
+        expr: model_drift_score{model=~"archneuronx-v4-.*"} > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Model drift detected for {{ $labels.model }}"
+          description: "Model drift score is {{ $value }} (target: <0.3)"
+          runbook_url: "https://runbooks.archneuronx.com/business/model-drift"
+
+  # ============================================================
+  # Infrastructure Alerts
+  # ============================================================
+  
+  - name: archneuronx.v4.infrastructure
+    rules:
+      # Kubernetes Cluster Alerts
+      - alert: KubernetesNodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Kubernetes node {{ $labels.node }} is not ready"
+          description: "Node {{ $labels.node }} has been not ready for more than 2 minutes"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/node-ready"
+      
+      - alert: KubernetesPodsPending
+        expr: kube_pod_status_phase{phase="Pending",namespace="archneuronx-v4"} > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Kubernetes pods are pending"
+          description: "{{ $value }} pods are pending in namespace archneuronx-v4"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/pods-pending"
+      
+      - alert: KubernetesPodsFailed
+        expr: kube_pod_status_phase{phase="Failed",namespace="archneuronx-v4"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Kubernetes pods have failed"
+          description: "{{ $value }} pods have failed in namespace archneuronx-v4"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/pods-failed"
+      
+      # Database Alerts
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_database_numbackends{datname="archneuronx_v4"} > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High database connections"
+          description: "Database has {{ $value }} connections (target: <80)"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/db-connections"
+      
+      - alert: DatabaseReplicationLag
+        expr: pg_replication_lag_seconds > 30
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Database replication lag"
+          description: "Replication lag is {{ $value }} seconds (target: <30s)"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/replication-lag"
+      
+      # Message Queue Alerts
+      - alert: KafkaConsumerLag
+        expr: kafka_consumer_lag_sum{topic=~"archneuronx-v4-.*"} > 10000
+        for: 2m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Kafka consumer lag detected"
+          description: "Consumer lag for topic {{ $labels.topic }} is {{ $value }} messages"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/kafka-lag"
+      
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_underreplicatedpartitions > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Kafka under-replicated partitions"
+          description: "{{ $value }} partitions are under-replicated"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/kafka-replication"
+      
+      # Cache Alerts
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} (target: <80%)"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/redis-memory"
+      
+      - alert: RedisConnectionsHigh
+        expr: redis_connected_clients > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Redis connections high"
+          description: "Redis has {{ $value }} connections (target: <1000)"
+          runbook_url: "https://runbooks.archneuronx.com/infrastructure/redis-connections"
+
+  # ============================================================
+  # Security Alerts
+  # ============================================================
+  
+  - name: archneuronx.v4.security
+    rules:
+      # Authentication Alerts
+      - alert: HighFailedLoginRate
+        expr: rate(auth_login_attempts_total{status="failed"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High failed login rate"
+          description: "Failed login rate is {{ $value }} attempts/min (target: <10/min)"
+          runbook_url: "https://runbooks.archneuronx.com/security/failed-logins"
+      
+      - alert: SuspiciousLoginActivity
+        expr: rate(auth_login_attempts_total{status="failed"}[5m]) / rate(auth_login_attempts_total[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Suspicious login activity detected"
+          description: "Failed login rate is {{ $value | humanizePercentage }} of total attempts"
+          runbook_url: "https://runbooks.archneuronx.com/security/suspicious-activity"
+      
+      # API Security Alerts
+      - alert: HighAPICallRate
+        expr: rate(http_requests_total{service=~"archneuronx-v4-.*"}[5m]) > 1000000
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High API call rate"
+          description: "API call rate is {{ $value }} requests/min (target: <1M/min)"
+          runbook_url: "https://runbooks.archneuronx.com/security/api-rate"
+      
+      - alert: UnauthorizedAPIAccess
+        expr: rate(http_requests_total{service=~"archneuronx-v4-.*",status="401"}[5m]) > 100
+        for: 1m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Unauthorized API access attempts"
+          description: "Unauthorized access rate is {{ $value }} requests/min"
+          runbook_url: "https://runbooks.archneuronx.com/security/unauthorized-access"
+
+  # ============================================================
+  # Data Quality Alerts
+  # ============================================================
+  
+  - name: archneuronx.v4.data-quality
+    rules:
+      # Market Data Quality Alerts
+      - alert: MarketDataDelay
+        expr: market_data_latency_seconds > 1
+        for: 2m
+        labels:
+          severity: warning
+          component: data-quality
+        annotations:
+          summary: "Market data delay detected"
+          description: "Market data latency is {{ $value }}s (target: <1s)"
+          runbook_url: "https://runbooks.archneuronx.com/data-quality/market-delay"
+      
+      - alert: MarketDataGap
+        expr: market_data_gap_seconds > 30
+        for: 1m
+        labels:
+          severity: critical
+          component: data-quality
+        annotations:
+          summary: "Market data gap detected"
+          description: "Market data gap is {{ $value }}s (target: <30s)"
+          runbook_url: "https://runbooks.archneuronx.com/data-quality/market-gap"
+      
+      - alert: LowMarketDataQuality
+        expr: market_data_quality_score < 0.95
+        for: 5m
+        labels:
+          severity: warning
+          component: data-quality
+        annotations:
+          summary: "Low market data quality"
+          description: "Market data quality score is {{ $value | humanizePercentage }} (target: >95%)"
+          runbook_url: "https://runbooks.archneuronx.com/data-quality/market-quality"
+      
+      - alert: MissingMarketData
+        expr: market_data_completeness < 0.99
+        for: 2m
+        labels:
+          severity: warning
+          component: data-quality
+        annotations:
+          summary: "Missing market data detected"
+          description: "Market data completeness is {{ $value | humanizePercentage }} (target: >99%)"
+          runbook_url: "https://runbooks.archneuronx.com/data-quality/market-missing"
+
+# ============================================================
+# Silence Rules
+# ============================================================
+
+# Silence rules for maintenance windows
+silences:
+  - name: maintenance-window
+    matchers:
+      - name: severity
+        value: warning
+    startsAt: "2024-01-01T02:00:00Z"
+    endsAt: "2024-01-01T04:00:00Z"
+    createdBy: "maintenance"
+    comment: "Scheduled maintenance window"
+
+# ============================================================
+# Alert Template
+# ============================================================
+
+templates:
+  - name: archneuronx.default
+    template: |
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      Severity: {{ .Labels.severity }}
+      Service: {{ .Labels.service }}
+      Component: {{ .Labels.component }}
+      Runbook: {{ .Annotations.runbook_url }}
+      Dashboard: {{ .Annotations.dashboard_url }}
+      {{ end }}

@@ -1,0 +1,423 @@
+# ============================================================
+# ArchNeuronX v4.0 - Demo Build (without LibTorch)
+# Market-Dominating Execution Engine - Demo Version
+# ============================================================
+
+FROM ubuntu:22.04
+
+LABEL maintainer="ArchNeuronX Team"
+LABEL version="4.0.0"
+LABEL description="ArchNeuronX v4.0 - Market-Dominating Execution Engine (Demo Version)"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ============================================================
+# System Dependencies
+# ============================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    ca-certificates \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================
+# Copy Source Code
+# ============================================================
+WORKDIR /app
+COPY . .
+
+# ============================================================
+# Create Simple Demo Server (without LibTorch dependencies)
+# ============================================================
+RUN cat > src/demo_server.cpp << 'EOF'
+#include <iostream>
+#include <string>
+#include <thread>
+#include <vector>
+#include <map>
+#include <sstream>
+#include <cstring>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <chrono>
+
+class ArchNeuronXV4Demo {
+private:
+    int server_fd;
+    int port;
+    bool running;
+    
+    std::string generate_status_response() {
+        auto now = std::chrono::system_clock::now();
+        auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now.time_since_epoch()).count();
+        
+        return R"({
+    "status": "healthy",
+    "version": "4.0.0",
+    "mode": "demo",
+    "timestamp": )" + std::to_string(timestamp) + R"(,
+    "performance": {
+        "latency_us": 15.2,
+        "throughput_ops_per_sec": 512000,
+        "gpu_utilization": 85.3,
+        "cpu_utilization": 72.1,
+        "memory_utilization": 68.9
+    },
+    "models": {
+        "quantum_neural_network_v4": {
+            "status": "active",
+            "accuracy": 87.3,
+            "win_rate": 0.854,
+            "signals_generated": 124567
+        },
+        "v4_ensemble": {
+            "status": "active",
+            "models": 16,
+            "weighted_voting": true,
+            "performance": 92.1
+        }
+    },
+    "trading": {
+        "active_positions": 42,
+        "total_value": 2847500.50,
+        "daily_pnl": 15750.25,
+        "win_rate_today": 0.892
+    },
+    "infrastructure": {
+        "gpu_nodes": 4,
+        "cpu_nodes": 8,
+        "region": "us-east-1",
+        "uptime_hours": 168.5
+    }
+})";
+    }
+    
+    std::string generate_models_response() {
+        return R"({
+    "models": [
+        {
+            "id": "quantum_neural_network_v4",
+            "name": "Quantum Neural Network v4.0",
+            "type": "quantum_inspired",
+            "status": "active",
+            "accuracy": 87.3,
+            "latency_us": 18.5,
+            "parameters": 125000000,
+            "layers": 16,
+            "attention_heads": 16
+        },
+        {
+            "id": "v4_ensemble",
+            "name": "V4 Ensemble Model",
+            "type": "ensemble",
+            "status": "active",
+            "models": 16,
+            "weighted_voting": true,
+            "performance": 92.1,
+            "ensemble_method": "weighted_average"
+        }
+    ]
+})";
+    }
+    
+    std::string generate_signals_response() {
+        return R"({
+    "signals": [
+        {
+            "id": "signal_001",
+            "symbol": "AAPL",
+            "action": "BUY",
+            "confidence": 0.892,
+            "probability": 0.854,
+            "timestamp": 1710672000000,
+            "price": 175.25,
+            "quantity": 100,
+            "expected_return": 0.023,
+            "risk_score": 0.156
+        },
+        {
+            "id": "signal_002",
+            "symbol": "MSFT",
+            "action": "SELL",
+            "confidence": 0.845,
+            "probability": 0.789,
+            "timestamp": 1710672001000,
+            "price": 375.50,
+            "quantity": 50,
+            "expected_return": -0.018,
+            "risk_score": 0.234
+        }
+    ],
+    "total_signals_today": 124567,
+    "successful_signals": 105678,
+    "win_rate": 0.848
+})";
+    }
+    
+    std::string generate_portfolio_response() {
+        return R"({
+    "portfolio": {
+        "total_value": 2847500.50,
+        "cash_balance": 456750.50,
+        "invested_value": 2390750.00,
+        "daily_pnl": 15750.25,
+        "daily_return": 0.0056,
+        "positions": [
+            {
+                "symbol": "AAPL",
+                "quantity": 100,
+                "avg_price": 172.50,
+                "current_price": 175.25,
+                "market_value": 17525.00,
+                "pnl": 275.00,
+                "return": 0.0159
+            },
+            {
+                "symbol": "MSFT",
+                "quantity": 50,
+                "avg_price": 378.00,
+                "current_price": 375.50,
+                "market_value": 18775.00,
+                "pnl": -125.00,
+                "return": -0.0066
+            }
+        ],
+        "risk_metrics": {
+            "portfolio_beta": 1.23,
+            "volatility": 0.156,
+            "sharpe_ratio": 2.34,
+            "max_drawdown": -0.089
+        }
+    }
+})";
+    }
+    
+    std::string generate_health_response() {
+        return R"({
+    "status": "healthy",
+    "version": "4.0.0",
+    "mode": "demo",
+    "uptime_seconds": 607800,
+    "checks": {
+        "api_server": "healthy",
+        "database": "healthy",
+        "models": "healthy",
+        "infrastructure": "healthy"
+    },
+    "performance": {
+        "latency_us": 15.2,
+        "throughput_ops_per_sec": 512000,
+        "error_rate": 0.001
+    }
+})";
+    }
+    
+    std::string get_response(const std::string& method, const std::string& path) {
+        std::map<std::string, std::string> responses;
+        
+        // API v4 endpoints
+        responses["/"] = R"({
+    "name": "ArchNeuronX v4.0 Trading System",
+    "version": "4.0.0",
+    "mode": "demo",
+    "description": "Market-Dominating Execution Engine with Quantum Neural Networks",
+    "endpoints": {
+        "status": "/api/v4/status",
+        "models": "/api/v4/models", 
+        "signals": "/api/v4/signals",
+        "portfolio": "/api/v4/portfolio",
+        "health": "/api/v4/health"
+    },
+    "performance_targets": {
+        "latency_us": "<20",
+        "throughput_ops_per_sec": ">500000",
+        "accuracy": ">85%",
+        "availability": ">99.99%"
+    }
+})";
+        
+        responses["/api/v4/status"] = generate_status_response();
+        responses["/api/v4/models"] = generate_models_response();
+        responses["/api/v4/signals"] = generate_signals_response();
+        responses["/api/v4/portfolio"] = generate_portfolio_response();
+        responses["/api/v4/health"] = generate_health_response();
+        
+        if (responses.find(path) != responses.end()) {
+            return responses[path];
+        }
+        
+        // Default 404 response
+        return R"({
+    "error": "Not Found",
+    "message": "Endpoint not found",
+    "available_endpoints": [
+        "/api/v4/status",
+        "/api/v4/models",
+        "/api/v4/signals", 
+        "/api/v4/portfolio",
+        "/api/v4/health"
+    ]
+})";
+    }
+    
+    std::string get_http_headers(const std::string& content_type, size_t content_length) {
+        std::ostringstream headers;
+        headers << "HTTP/1.1 200 OK\r\n";
+        headers << "Content-Type: " << content_type << "\r\n";
+        headers << "Content-Length: " << content_length << "\r\n";
+        headers << "Access-Control-Allow-Origin: *\r\n";
+        headers << "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n";
+        headers << "Access-Control-Allow-Headers: Content-Type, Authorization\r\n";
+        headers << "Server: ArchNeuronX-v4.0\r\n";
+        headers << "\r\n";
+        return headers.str();
+    }
+    
+public:
+    ArchNeuronXV4Demo(int port = 8080) : port(port), running(false), server_fd(-1) {}
+    
+    ~ArchNeuronXV4Demo() {
+        stop();
+    }
+    
+    void start() {
+        server_fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (server_fd < 0) {
+            throw std::runtime_error("Failed to create socket");
+        }
+        
+        int opt = 1;
+        setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        
+        struct sockaddr_in address;
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = INADDR_ANY;
+        address.sin_port = htons(port);
+        
+        if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+            throw std::runtime_error("Failed to bind socket");
+        }
+        
+        if (listen(server_fd, 128) < 0) {
+            throw std::runtime_error("Failed to listen on socket");
+        }
+        
+        running = true;
+        std::cout << "🚀 ArchNeuronX v4.0 Demo Server Started!" << std::endl;
+        std::cout << "📊 Port: " << port << std::endl;
+        std::cout << "🌐 API Endpoints:" << std::endl;
+        std::cout << "   - http://localhost:" << port << "/api/v4/status" << std::endl;
+        std::cout << "   - http://localhost:" << port << "/api/v4/models" << std::endl;
+        std::cout << "   - http://localhost:" << port << "/api/v4/signals" << std::endl;
+        std::cout << "   - http://localhost:" << port << "/api/v4/portfolio" << std::endl;
+        std::cout << "   - http://localhost:" << port << "/api/v4/health" << std::endl;
+        std::cout << "⚡ Performance Targets: <20μs latency, >500K ops/sec" << std::endl;
+        
+        while (running) {
+            struct sockaddr_in client_addr;
+            socklen_t client_len = sizeof(client_addr);
+            int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
+            
+            if (client_fd >= 0) {
+                std::thread client_thread([this, client_fd]() {
+                    handle_client(client_fd);
+                });
+                client_thread.detach();
+            }
+        }
+    }
+    
+    void stop() {
+        running = false;
+        if (server_fd >= 0) {
+            close(server_fd);
+            server_fd = -1;
+        }
+    }
+    
+private:
+    void handle_client(int client_fd) {
+        char buffer[4096];
+        ssize_t bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
+        
+        if (bytes_read > 0) {
+            buffer[bytes_read] = '\0';
+            
+            std::string request(buffer);
+            std::istringstream iss(request);
+            std::string method, path, version;
+            iss >> method >> path >> version;
+            
+            std::string response = get_response(method, path);
+            std::string headers = get_http_headers("application/json", response.length());
+            
+            std::string full_response = headers + response;
+            send(client_fd, full_response.c_str(), full_response.length(), 0);
+        }
+        
+        close(client_fd);
+    }
+};
+
+int main(int argc, char* argv[]) {
+    try {
+        int port = 8080;
+        if (argc > 1) {
+            port = std::stoi(argv[1]);
+        }
+        
+        ArchNeuronXV4Demo server(port);
+        server.start();
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+    
+    return 0;
+}
+EOF
+
+# ============================================================
+# Build Demo Server
+# ============================================================
+RUN g++ -std=c++20 -O2 -o archneuronx_v4_demo src/demo_server.cpp -pthread
+
+# ============================================================
+# Create User and Directories
+# ============================================================
+RUN groupadd -r archneuronx && useradd -r -g archneuronx -d /app -s /bin/bash archneuronx && \
+    mkdir -p /app/models /app/data /app/logs && \
+    chown -R archneuronx:archneuronx /app
+
+# ============================================================
+# Switch to Non-Root User
+# ============================================================
+USER archneuronx
+WORKDIR /app
+
+# ============================================================
+# Expose Ports
+# ============================================================
+EXPOSE 8080
+
+# ============================================================
+# Health Check
+# ============================================================
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/api/v4/health || exit 1
+
+# ============================================================
+# Environment Variables
+# ============================================================
+ENV ARCHNEURONX_VERSION=4.0.0
+ENV ARCHNEURONX_MODE=demo
+ENV ARCHNEURONX_PORT=8080
+
+# ============================================================
+# Entry Point
+# ============================================================
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["./archneuronx_v4_demo"]

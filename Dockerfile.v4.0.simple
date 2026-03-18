@@ -1,0 +1,70 @@
+# ============================================================
+# ArchNeuronX v4.0 - Simple Demo Build
+# Market-Dominating Execution Engine - Demo Version
+# ============================================================
+
+FROM ubuntu:22.04
+
+LABEL maintainer="ArchNeuronX Team"
+LABEL version="4.0.0"
+LABEL description="ArchNeuronX v4.0 - Market-Dominating Execution Engine (Demo Version)"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ============================================================
+# System Dependencies
+# ============================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    ca-certificates \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================
+# Copy Source Code
+# ============================================================
+WORKDIR /app
+COPY . .
+
+# ============================================================
+# Build Demo Server
+# ============================================================
+RUN g++ -std=c++20 -O2 -o archneuronx_v4_demo src/demo_server.cpp -pthread
+
+# ============================================================
+# Create User and Directories
+# ============================================================
+RUN groupadd -r archneuronx && useradd -r -g archneuronx -d /app -s /bin/bash archneuronx && \
+    mkdir -p /app/models /app/data /app/logs && \
+    chown -R archneuronx:archneuronx /app
+
+# ============================================================
+# Switch to Non-Root User
+# ============================================================
+USER archneuronx
+WORKDIR /app
+
+# ============================================================
+# Expose Ports
+# ============================================================
+EXPOSE 8080
+
+# ============================================================
+# Health Check
+# ============================================================
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/api/v4/health || exit 1
+
+# ============================================================
+# Environment Variables
+# ============================================================
+ENV ARCHNEURONX_VERSION=4.0.0
+ENV ARCHNEURONX_MODE=demo
+ENV ARCHNEURONX_PORT=8080
+
+# ============================================================
+# Entry Point
+# ============================================================
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["./archneuronx_v4_demo"]

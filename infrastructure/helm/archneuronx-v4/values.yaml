@@ -1,0 +1,962 @@
+# ============================================================
+# ArchNeuronX v4.0 - Helm Chart Values
+# Configuration for production deployment with <20μs latency
+# ============================================================
+
+# Global Configuration
+global:
+  imageRegistry: "docker.io/archneuronx"
+  imagePullSecrets: ["archneuronx-registry-secret"]
+  storageClass: "gp3-encrypted"
+  
+  # Performance tuning
+  nodeSelector:
+    archneuronx/node-type: "high-performance"
+  
+  tolerations:
+  - key: "archneuronx/node-type"
+    operator: "Equal"
+    value: "high-performance"
+    effect: "NoSchedule"
+  
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+              - archneuronx-v4
+          topologyKey: "kubernetes.io/hostname"
+  
+  # Resource defaults
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "2Gi"
+    limits:
+      cpu: "4000m"
+      memory: "8Gi"
+
+# Core Services Configuration
+services:
+  # Market Transformer Service
+  marketTransformer:
+    enabled: true
+    replicaCount: 10
+    
+    image:
+      repository: "market-transformer"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "4000m"
+        memory: "8Gi"
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "8000m"
+        memory: "16Gi"
+        nvidia.com/gpu: "1"
+    
+    nodeSelector:
+      archneuronx/node-type: "high-performance"
+    
+    config:
+      modelPath: "/models/market_transformer_v4.pt"
+      batchSize: 32
+      maxLatencyUs: 20
+      gpuMemoryFraction: 0.8
+      numWorkers: 8
+      enableFlashAttention: true
+      enableSparseAttention: true
+    
+    env:
+    - name: CUDA_VISIBLE_DEVICES
+      value: "0"
+    - name: OMP_NUM_THREADS
+      value: "8"
+    - name: CUDA_LAUNCH_BLOCKING
+      value: "1"
+    
+    probes:
+      liveness:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+      readiness:
+        httpGet:
+          path: /ready
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        timeoutSeconds: 3
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+
+  # Graph Network Service
+  graphNetwork:
+    enabled: true
+    replicaCount: 5
+    
+    image:
+      repository: "graph-network"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "2000m"
+        memory: "16Gi"
+      limits:
+        cpu: "4000m"
+        memory: "32Gi"
+    
+    nodeSelector:
+      archneuronx/node-type: "data-intensive"
+    
+    config:
+      maxNodes: 10000
+      edgeUpdateIntervalMs: 100
+      correlationThreshold: 0.7
+      maxAssets: 1000
+      enableRealTimeCorrelation: true
+    
+    env:
+    - name: OMP_NUM_THREADS
+      value: "16"
+    - name: MALLOC_ARENA_MAX
+      value: "4"
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+  # Order Routing Service
+  orderRouting:
+    enabled: true
+    replicaCount: 8
+    
+    image:
+      repository: "order-routing"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "2000m"
+        memory: "4Gi"
+      limits:
+        cpu: "4000m"
+        memory: "8Gi"
+    
+    nodeSelector:
+      archneuronx/node-type: "high-performance"
+    
+    config:
+      learningRate: 0.001
+      explorationRate: 0.1
+      maxVenues: 20
+      enableReinforcementLearning: true
+      enableMultiArmedBandit: true
+    
+    env:
+    - name: OMP_NUM_THREADS
+      value: "4"
+    - name: GOMAXPROCS
+      value: "4"
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+  # Risk Management Service
+  riskManagement:
+    enabled: true
+    replicaCount: 6
+    
+    image:
+      repository: "risk-management"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "2000m"
+        memory: "8Gi"
+      limits:
+        cpu: "4000m"
+        memory: "16Gi"
+    
+    config:
+      varConfidence: 0.95
+      maxDrawdown: 0.15
+      portfolioVarLimit: 0.06
+      enableRealTimeRisk: true
+      enableCircuitBreakers: true
+    
+    env:
+    - name: OMP_NUM_THREADS
+      value: "8"
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+  # Portfolio Optimizer Service
+  portfolioOptimizer:
+    enabled: true
+    replicaCount: 4
+    
+    image:
+      repository: "portfolio-optimizer"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "3000m"
+        memory: "8Gi"
+      limits:
+        cpu: "6000m"
+        memory: "16Gi"
+    
+    config:
+      targetReturn: 0.15
+      riskTolerance: 0.1
+      primaryAlgorithm: "hybrid"
+      enableQuantumOptimization: true
+      enableGeneticAlgorithm: true
+    
+    env:
+    - name: OMP_NUM_THREADS
+      value: "12"
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+  # Regime Meta-Learner Service
+  regimeMetaLearner:
+    enabled: true
+    replicaCount: 3
+    
+    image:
+      repository: "regime-meta-learner"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "2000m"
+        memory: "8Gi"
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "4000m"
+        memory: "16Gi"
+        nvidia.com/gpu: "1"
+    
+    nodeSelector:
+      archneuronx/node-type: "ml-workload"
+    
+    config:
+      maxAdaptationSteps: 10
+      adaptationThreshold: 0.1
+      enableMetaLearning: true
+      enableContinualLearning: true
+    
+    env:
+    - name: CUDA_VISIBLE_DEVICES
+      value: "0"
+    - name: OMP_NUM_THREADS
+      value: "8"
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+# Supporting Services
+supportingServices:
+  # Data Ingestion Service
+  dataIngestion:
+    enabled: true
+    replicaCount: 4
+    
+    image:
+      repository: "data-ingestion"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "1000m"
+        memory: "2Gi"
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+    
+    config:
+      kafkaBrokers: "kafka:9092"
+      enableRealTimeProcessing: true
+      maxMessagesPerSecond: 10000000
+    
+    env:
+    - name: GOMAXPROCS
+      value: "2"
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+  # Configuration Service
+  configService:
+    enabled: true
+    replicaCount: 2
+    
+    image:
+      repository: "config-service"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+    
+    config:
+      etcdEndpoints: "etcd:2379"
+      enableFeatureFlags: true
+      enableDynamicConfig: true
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+  # Authentication Service
+  authService:
+    enabled: true
+    replicaCount: 2
+    
+    image:
+      repository: "auth-service"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+    
+    config:
+      jwtSecret: "your-jwt-secret-here"
+      enableMFA: true
+      enableRBAC: true
+    
+    env:
+    - name: GOMAXPROCS
+      value: "2"
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+  # Monitoring Service
+  monitoringService:
+    enabled: true
+    replicaCount: 2
+    
+    image:
+      repository: "monitoring-service"
+      tag: "v4.0.0"
+      pullPolicy: "IfNotPresent"
+    
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+    
+    config:
+      prometheusEndpoint: "http://prometheus:9090"
+      enableHealthChecks: true
+      enableMetricsCollection: true
+    
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: 8080
+
+# Infrastructure Dependencies
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: "redis-secret"
+    existingSecretPasswordKey: "password"
+  master:
+    persistence:
+      enabled: true
+      storageClass: "gp3-encrypted"
+      size: "100Gi"
+  replica:
+    replicaCount: 3
+  metrics:
+    enabled: true
+  architecture: "replication"
+  
+kafka:
+  enabled: true
+  replicaCount: 3
+  listeners:
+    client:
+      protocol: "PLAINTEXT"
+      name: "CLIENT"
+    interbroker:
+      protocol: "PLAINTEXT"
+      name: "INTERNAL"
+  persistence:
+    enabled: true
+    storageClass: "gp3-encrypted"
+    size: "1Ti"
+  metrics:
+    kafka:
+      enabled: true
+    jmx:
+      enabled: true
+  zookeeper:
+    persistence:
+      enabled: true
+      storageClass: "gp3-encrypted"
+      size: "100Gi"
+
+influxdb:
+  enabled: true
+  auth:
+    enabled: true
+    admin:
+      existingSecret: "influxdb-secret"
+      userKey: "admin-user"
+      passwordKey: "admin-password"
+  persistence:
+    enabled: true
+    storageClass: "gp3-encrypted"
+    size: "500Gi"
+  initScripts:
+    enabled: true
+    scripts:
+      setup.sh: |
+        # Create databases
+        influx -execute "CREATE DATABASE market_data"
+        influx -execute "CREATE DATABASE trading_metrics"
+        influx -execute "CREATE DATABASE system_metrics"
+
+neo4j:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: "neo4j-secret"
+  resources:
+    requests:
+      cpu: "2000m"
+      memory: "8Gi"
+    limits:
+      cpu: "4000m"
+      memory: "16Gi"
+  persistence:
+    enabled: true
+    storageClass: "gp3-encrypted"
+    size: "500Gi"
+  configuration:
+    default:
+      "dbms.memory.heap.initial_size": "4G"
+      "dbms.memory.heap.max_size": "8G"
+      "dbms.memory.pagecache.size": "4G"
+      "dbms.security.procedures.unrestricted": "gds.*,apoc.*"
+
+mongodb:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: "mongodb-secret"
+    rootPasswordSecret: "mongodb-secret"
+    rootPasswordKey: "mongodb-root-password"
+  persistence:
+    enabled: true
+    storageClass: "gp3-encrypted"
+    size: "500Gi"
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "4Gi"
+    limits:
+      cpu: "2000m"
+      memory: "8Gi"
+
+# Monitoring Stack
+prometheus:
+  enabled: true
+  server:
+    retention: "30d"
+    persistentVolume:
+      enabled: true
+      storageClass: "gp3-encrypted"
+      size: "200Gi"
+    resources:
+      requests:
+        cpu: "1000m"
+        memory: "4Gi"
+      limits:
+        cpu: "2000m"
+        memory: "8Gi"
+  alertmanager:
+    enabled: true
+    persistentVolume:
+      enabled: true
+      storageClass: "gp3-encrypted"
+      size: "10Gi"
+
+grafana:
+  enabled: true
+  adminPassword: "admin123"
+  persistence:
+    enabled: true
+    storageClass: "gp3-encrypted"
+    size: "20Gi"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus:9090
+        access: proxy
+        isDefault: true
+      - name: InfluxDB
+        type: influxdb
+        url: http://influxdb:8086
+        access: proxy
+        database: market_data
+      - name: Jaeger
+        type: jaeger
+        url: http://jaeger:16686
+        access: proxy
+
+jaeger:
+  enabled: true
+  collector:
+    enabled: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+      limits:
+        cpu: "1000m"
+        memory: "4Gi"
+  query:
+    enabled: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+  agent:
+    enabled: true
+  storage:
+    type: memory
+
+# Service Mesh
+istio:
+  enabled: true
+  istiod:
+    enabled: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+  ingress:
+    enabled: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+  telemetry:
+    enabled: true
+  kiali:
+    enabled: true
+  grafana:
+    enabled: true
+
+# API Gateway
+apiGateway:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: "kong"
+    tag: "3.4"
+    pullPolicy: "IfNotPresent"
+  
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "2Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+  
+  env:
+  - name: KONG_DATABASE
+    value: "off"
+  - name: KONG_DECLARATIVE_CONFIG
+    value: "/kong/declarative/kong.yml"
+  - name: KONG_PROXY_ACCESS_LOG
+    value: "/dev/stdout"
+  - name: KONG_ADMIN_ACCESS_LOG
+    value: "/dev/stdout"
+  - name: KONG_PROXY_ERROR_LOG
+    value: "/dev/stderr"
+  - name: KONG_ADMIN_ERROR_LOG
+    value: "/dev/stderr"
+  - name: KONG_ADMIN_LISTEN
+    value: "0.0.0.0:8001"
+  
+  service:
+    type: LoadBalancer
+    ports:
+    - name: proxy
+      port: 80
+      targetPort: 8000
+    - name: proxy-ssl
+      port: 443
+      targetPort: 8443
+    - name: admin
+      port: 8001
+      targetPort: 8001
+  
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    hosts:
+    - host: archneuronx-api.example.com
+      paths:
+      - path: /
+        pathType: Prefix
+
+# Network Policies
+networkPolicies:
+  enabled: true
+  
+  # Allow traffic from API Gateway to services
+  apiGatewayToServices:
+    enabled: true
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: archneuronx-v4
+    policyTypes:
+    - Ingress
+    - Egress
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app: kong
+      ports:
+      - protocol: TCP
+        port: 8080
+  
+  # Allow inter-service communication
+  interService:
+    enabled: true
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: archneuronx-v4
+    policyTypes:
+    - Ingress
+    - Egress
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: archneuronx-v4
+      ports:
+      - protocol: TCP
+        port: 8080
+
+# Pod Security Policies
+podSecurityPolicy:
+  enabled: false  # Deprecated in Kubernetes 1.25+
+
+# Pod Security Admission
+podSecurity:
+  enabled: true
+  standards:
+    privileged: false
+    baseline: true
+    restricted: true
+
+# Horizontal Pod Autoscaling
+autoscaling:
+  enabled: true
+  
+  marketTransformer:
+    enabled: true
+    minReplicas: 10
+    maxReplicas: 50
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  graphNetwork:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  orderRouting:
+    enabled: true
+    minReplicas: 8
+    maxReplicas: 40
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Vertical Pod Autoscaling
+verticalPodAutoscaling:
+  enabled: true
+  updateMode: "Auto"
+
+# Pod Disruption Budgets
+podDisruptionBudgets:
+  enabled: true
+  
+  marketTransformer:
+    minAvailable: 8
+    maxUnavailable: 2
+  
+  graphNetwork:
+    minAvailable: 3
+    maxUnavailable: 1
+  
+  orderRouting:
+    minAvailable: 6
+    maxUnavailable: 2
+
+# Resource Quotas
+resourceQuotas:
+  enabled: true
+  
+  compute:
+    requests:
+      cpu: "100"
+      memory: "200Gi"
+    limits:
+      cpu: "200"
+      memory: "400Gi"
+  
+  storage:
+    requests:
+      storage: "5Ti"
+    limits:
+      storage: "10Ti"
+
+# Limit Ranges
+limitRanges:
+  enabled: true
+  
+  default:
+    default:
+      cpu: "100m"
+      memory: "128Mi"
+    defaultRequest:
+      cpu: "50m"
+      memory: "64Mi"
+    type: Container
+
+# Priority Classes
+priorityClasses:
+  enabled: true
+  
+  high:
+    value: 1000
+    description: "High priority class for critical services"
+  
+  medium:
+    value: 500
+    description: "Medium priority class for standard services"
+  
+  low:
+    value: 100
+    description: "Low priority class for background services"
+
+# ConfigMaps
+configMaps:
+  enabled: true
+  
+  applicationConfig:
+    enabled: true
+    data:
+      config.yaml: |
+        services:
+          market_transformer:
+            model_path: "/models/market_transformer_v4.pt"
+            batch_size: 32
+            max_latency_us: 20
+            gpu_memory_fraction: 0.8
+          
+          graph_network:
+            max_nodes: 10000
+            edge_update_interval_ms: 100
+            correlation_threshold: 0.7
+          
+          order_routing:
+            learning_rate: 0.001
+            exploration_rate: 0.1
+            max_venues: 20
+          
+          risk_management:
+            var_confidence: 0.95
+            max_drawdown: 0.15
+            portfolio_var_limit: 0.06
+          
+          portfolio_optimizer:
+            target_return: 0.15
+            risk_tolerance: 0.1
+            primary_algorithm: "hybrid"
+          
+          regime_meta_learner:
+            max_adaptation_steps: 10
+            adaptation_threshold: 0.1
+
+# Secrets
+secrets:
+  enabled: true
+  
+  databaseCredentials:
+    enabled: true
+    data:
+      postgresql-user: "archneuronx_app"
+      postgresql-password: "your-secure-password"
+  
+  redisCredentials:
+    enabled: true
+    data:
+      redis-password: "your-redis-password"
+  
+  jwtSecret:
+    enabled: true
+    data:
+      jwt-secret: "your-jwt-secret-here"
+
+# Service Accounts
+serviceAccounts:
+  enabled: true
+  
+  default:
+    enabled: true
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT:role/archneuronx-v4-role"
+
+# RBAC
+rbac:
+  enabled: true
+  
+  roles:
+    default:
+      enabled: true
+      rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "configmaps", "secrets"]
+        verbs: ["get", "list", "watch"]
+
+# Ingress
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  
+  hosts:
+  - host: archneuronx.example.com
+    paths:
+    - path: /
+      pathType: Prefix
+      backend:
+        service:
+          name: kong
+          port:
+            number: 80
+  
+  tls:
+  - secretName: archneuronx-tls
+    hosts:
+    - archneuronx.example.com
+
+# Tests
+tests:
+  enabled: true
+  
+  marketTransformer:
+    enabled: true
+    image:
+      repository: "market-transformer-test"
+      tag: "v4.0.0"
+    
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+# Custom Resource Definitions
+customResourceDefinitions:
+  enabled: false

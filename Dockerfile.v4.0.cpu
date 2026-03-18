@@ -1,0 +1,121 @@
+# ============================================================
+# ArchNeuronX v4.0 - CPU-Only Build (for testing)
+# Market-Dominating Execution Engine - CPU Version
+# ============================================================
+
+FROM ubuntu:22.04
+
+LABEL maintainer="ArchNeuronX Team"
+LABEL version="4.0.0"
+LABEL description="ArchNeuronX v4.0 - Market-Dominating Execution Engine (CPU Version)"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ============================================================
+# System Dependencies
+# ============================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    unzip \
+    pkg-config \
+    python3 \
+    python3-pip \
+    python3-dev \
+    ca-certificates \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================
+# Python Dependencies
+# ============================================================
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install numpy scipy matplotlib
+
+# ============================================================
+# LibTorch 2.6 Installation (CPU Version)
+# ============================================================
+WORKDIR /opt
+RUN wget -O libtorch-2.6.0.zip \
+    https://download.pytorch.org/libtorch/whl/cpu/torch-2.6.0%2Bcpu-cp310-cp310-linux_x86_64.whl
+
+RUN unzip libtorch-2.6.0.zip
+RUN mv torch libtorch-2.6
+RUN rm libtorch-2.6.0.zip
+
+# Set LibTorch environment
+ENV TORCH_HOME=/opt/libtorch-2.6
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TORCH_HOME/lib
+ENV PYTHONPATH=$TORCH_HOME/lib/python
+
+# ============================================================
+# Copy Source Code
+# ============================================================
+WORKDIR /app
+COPY . .
+
+# ============================================================
+# Build Configuration
+# ============================================================
+RUN mkdir -p build
+RUN cd build && \
+    cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DUSE_CUDA=OFF \
+    -DUSE_LIBTORCH_26=ON \
+    -DBUILD_V4_QUANTUM=ON \
+    -DENABLE_ULTRA_LOW_LATENCY=ON \
+    -DCMAKE_CXX_FLAGS="-O3 -march=native -mavx2 -mfma -mbmi2 -DNDEBUG -funroll-loops"
+
+# ============================================================
+# Build ArchNeuronX v4.0
+# ============================================================
+RUN cd build && \
+    make -j$(nproc) archneuronx_v4
+
+# ============================================================
+# Create User and Directories
+# ============================================================
+RUN groupadd -r archneuronx && useradd -r -g archneuronx -d /app -s /bin/bash archneuronx && \
+    mkdir -p /app/models /app/data /app/logs /app/config && \
+    chown -R archneuronx:archneuronx /app
+
+# ============================================================
+# Copy Configuration
+# ============================================================
+COPY config/v4_production.json /app/config/production.json
+
+# ============================================================
+# Switch to Non-Root User
+# ============================================================
+USER archneuronx
+WORKDIR /app
+
+# ============================================================
+# Expose Ports
+# ============================================================
+EXPOSE 8080 9090
+
+# ============================================================
+# Health Check
+# ============================================================
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/api/v4/health || exit 1
+
+# ============================================================
+# Environment Variables
+# ============================================================
+ENV ARCHNEURONX_VERSION=4.0.0
+ENV ARCHNEURONX_LOG_LEVEL=info
+ENV ARCHNEURONX_CONFIG_PATH=/app/config/production.json
+ENV ARCHNEURONX_PORT=8080
+ENV ARCHNEURONX_MODE=cpu-only
+
+# ============================================================
+# Entry Point
+# ============================================================
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["./build/archneuronx_v4", "server", "--config", "/app/config/production.json", "--port", "8080"]

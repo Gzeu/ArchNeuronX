@@ -1,0 +1,413 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "ArchNeuronX v4.0 Deployment Dashboard",
+    "tags": ["archneuronx", "v4.0", "deployment", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Deployment Status",
+        "type": "stat",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "up{job=\"kubernetes-deployment\"}",
+            "legendFormat": "{{deployment}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 0
+                }
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "options": {
+          "reduceOptions": [
+            {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            }
+          ],
+          "orientation": "horizontal",
+          "textMode": "auto"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Service Health",
+        "type": "table",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "kube_deployment_status_replicas{namespace=\"archneuronx-v4\"}",
+            "legendFormat": "{{deployment}}"
+          },
+          {
+            "expr": "kube_deployment_status_replicas_available{namespace=\"archneuronx-v4\"}",
+            "legendFormat": "{{deployment}}"
+          },
+          {
+            "expr": "kube_deployment_status_replicas_unavailable{namespace=\"archneuronx-v4\"}",
+            "legendFormat": "{{deployment}}"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto"
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{namespace=\"archneuronx-v4\"}[5m])",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Response Time",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{namespace=\"archneuronx-v4\"}[5m]))",
+            "legendFormat": "{{service}} P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{namespace=\"archneuronx-v4\"}[5m]))",
+            "legendFormat": "{{service}} P99"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Seconds"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{namespace=\"archneuronx-v4\",status=~\"5..\"}[5m]) / rate(http_requests_total{namespace=\"archneuronx-v4\"}[5m])",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Error Rate",
+            "max": 1,
+            "min": 0,
+            "unit": "percentunit"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Resource Usage",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        },
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{namespace=\"archneuronx-v4\"}[5m])",
+            "legendFormat": "{{pod}} CPU"
+          },
+          {
+            "expr": "container_memory_working_set_bytes{namespace=\"archneuronx-v4\"} / 1024 / 1024",
+            "legendFormat": "{{pod}} Memory"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Usage"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Trading Performance",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "rate(trading_orders_total{namespace=\"archneuronx-v4\",status=\"filled\"}[5m])",
+            "legendFormat": "Filled Orders/sec"
+          },
+          {
+            "expr": "rate(trading_orders_total{namespace=\"archneuronx-v4\",status=\"rejected\"}[5m])",
+            "legendFormat": "Rejected Orders/sec"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Orders/sec"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "System Metrics",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "node_load1{job=\"node-exporter\"}",
+            "legendFormat": "{{instance}}"
+          },
+          {
+            "expr": "node_filesystem_avail_bytes{job=\"node-exporter\"} / 1024 / 1024 / 1024",
+            "legendFormat": "{{instance}} Available GB"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Value"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Deployment Progress",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 0,
+          "y": 32
+        },
+        "targets": [
+          {
+            "expr": "kube_deployment_status_replicas_available{namespace=\"archneuronx-v4\"} / kube_deployment_status_replicas{namespace=\"archneuronx-v4\"} * 100",
+            "legendFormat": "Deployment Progress"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 95
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Active Users",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 6,
+          "y": 32
+        },
+        "targets": [
+          {
+            "expr": "active_users_total{namespace=\"archneuronx-v4\"}",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "Database Connections",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 12,
+          "y": 32
+        },
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends{namespace=\"archneuronx-v4\"}",
+            "legendFormat": "PostgreSQL Connections"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 18,
+          "y": 32
+        },
+        "targets": [
+          {
+            "expr": "redis_keyspace_hits_total{namespace=\"archneuronx-v4\"} / (redis_keyspace_hits_total{namespace=\"archneuronx-v4\"} + redis_keyspace_misses_total{namespace=\"archneuronx-v4\"}) * 100",
+            "legendFormat": "Redis Hit Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Message Queue Lag",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 24,
+          "y": 32
+        },
+        "targets": [
+          {
+            "expr": "kafka_consumer_lag_sum{namespace=\"archneuronx-v4\"}",
+            "legendFormat": "Kafka Consumer Lag"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 1000
+                },
+                {
+                  "color": "red",
+                  "value": 5000
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "5s"
+  }
+}
