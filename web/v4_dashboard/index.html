@@ -721,6 +721,41 @@
             </section>
 
             <!-- Monitoring Section -->
+            <section id="quantum-agents" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h3 class="text-xl font-bold mb-4 text-blue-400">Quantum Agents Status</h3>
+                        <div id="quantum-agents-list" class="space-y-4">
+                            <!-- Quantum agents will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h3 class="text-xl font-bold mb-4 text-blue-400">Agent Performance</h3>
+                        <div id="agent-performance-chart" class="h-64">
+                            <canvas id="agentPerformanceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h3 class="text-xl font-bold mb-4 text-blue-400">Quantum Coherence</h3>
+                        <div id="quantum-coherence-chart" class="h-64">
+                            <canvas id="quantumCoherenceChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h3 class="text-xl font-bold mb-4 text-blue-400">Agent Coordination</h3>
+                        <div id="agent-coordination-matrix" class="h-64">
+                            <!-- Coordination matrix visualization -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Monitoring Section -->
             <section id="monitoring-section" class="space-y-6 hidden">
                 <h2 class="text-2xl font-bold">System Monitoring</h2>
                 

@@ -202,23 +202,94 @@ target_include_directories(archneuronx_v4 PRIVATE include)
 target_compile_features(archneuronx_v4 PRIVATE cxx_std_20)
 
 # ============================================================
-# v4.0 Examples and benchmarks
+# v4.0 Quantum Neural Networks
 # ============================================================
-if(BUILD_BENCHMARKS)
-    add_executable(v4_quantum_example
-        examples/v4_quantum_network_example.cpp
-    )
-    
-    target_link_libraries(v4_quantum_example
-        PRIVATE
-        v4_ultra_low_latency_engine
-        v4_quantum_network
-        ${TORCH_LIBRARIES}
-        Threads::Threads
-    )
-    
-    target_include_directories(v4_quantum_example PRIVATE include)
-endif()
+add_library(v4_quantum_neural_network
+    src/models/quantum_neural_network.cpp
+    src/models/quantum_optimizer.cpp
+    src/models/quantum_trading_signals.cpp
+)
+
+target_link_libraries(v4_quantum_neural_network
+    PRIVATE
+    ${TORCH_LIBRARIES}
+    Threads::Threads
+)
+
+target_include_directories(v4_quantum_neural_network PRIVATE include)
+target_compile_features(v4_quantum_neural_network PRIVATE cxx_std_20)
+
+# ============================================================
+# v4.0 Quantum Trading System
+# ============================================================
+add_executable(archneuronx_quantum
+    src/models/quantum_integration.cpp
+)
+
+target_link_libraries(archneuronx_quantum
+    PRIVATE
+    v4_quantum_neural_network
+    ${TORCH_LIBRARIES}
+    Threads::Threads
+)
+
+target_include_directories(archneuronx_quantum PRIVATE include)
+target_compile_features(archneuronx_quantum PRIVATE cxx_std_20)
+
+# ============================================================
+# v4.0 Quantum Agent System
+# ============================================================
+add_executable(archneuronx_quantum_agents
+    src/integration/quantum_agent_integration.cpp
+    src/agents/quantum_trading_agent.cpp
+    src/web/quantum_agent_web_integration.cpp
+)
+
+target_link_libraries(archneuronx_quantum_agents
+    PRIVATE
+    v4_quantum_neural_network
+    ${TORCH_LIBRARIES}
+    Threads::Threads
+)
+
+target_include_directories(archneuronx_quantum_agents PRIVATE include)
+target_compile_features(archneuronx_quantum_agents PRIVATE cxx_std_20)
+
+# ============================================================
+# v4.0 Live Trading System
+# ============================================================
+add_executable(archneuronx_live_trading
+    src/trading/main_live_trading.cpp
+    src/trading/live_trading_engine.cpp
+    src/models/quantum_trading_signals.cpp
+    src/models/quantum_neural_network.cpp
+    src/models/quantum_optimizer.cpp
+    src/agents/quantum_trading_agent.cpp
+    src/web/quantum_agent_web_integration.cpp
+    src/ml/huggingface_integration.cpp
+    src/integration/quantum_agent_integration.cpp
+    src/core/complete_trading_system.cpp
+)
+
+target_link_libraries(archneuronx_live_trading
+    PRIVATE
+    v4_quantum_neural_network
+    ${TORCH_LIBRARIES}
+    Threads::Threads
+    curl
+    nlohmann_json::nlohmann_json
+)
+
+target_include_directories(archneuronx_live_trading PRIVATE include)
+target_compile_features(archneuronx_live_trading PRIVATE cxx_std_20)
+
+# Find and link curl
+find_package(CURL REQUIRED)
+target_link_libraries(archneuronx_live_trading PRIVATE CURL::libcurl)
+
+# Find and link nlohmann_json
+find_package(nlohmann_json REQUIRED)
+target_link_libraries(archneuronx_live_trading PRIVATE nlohmann_json::nlohmann_json)
 
 # ============================================================
 # Legacy v3.0 support (optional)
