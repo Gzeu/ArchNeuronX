@@ -1,0 +1,249 @@
+# ArchNeuronX v4.0 Live Trading Configuration Template
+# API KEYS WILL BE LOADED FROM SECURE ENVIRONMENT VARIABLES
+# DO NOT COMMIT REAL API KEYS TO GIT!
+
+# Exchange Configuration
+exchange:
+  name: "binance"
+  api_key: "${BINANCE_API_KEY}"           # Loaded from environment
+  api_secret: "${BINANCE_API_SECRET}"     # Loaded from environment
+  base_url: "https://api.binance.com"
+  testnet: true  # USE TESTNET FOR DEMO
+  
+  # Trading pairs
+  symbols:
+    - "BTCUSDT"
+    - "ETHUSDT"
+    - "BNBUSDT"
+    - "ADAUSDT"
+    - "SOLUSDT"
+
+# Trading Configuration
+trading:
+  # Symbols to trade
+  symbols: ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+  
+  # Trading interval (milliseconds)
+  interval_ms: 1000
+  
+  # Risk parameters
+  risk_per_trade: 100.0      # Risk per trade in USD
+  max_position_size: 1000.0   # Maximum position size
+  max_daily_trades: 50        # Maximum trades per day
+  
+  # Order settings
+  order_type: "market"        # market, limit, stop
+  slippage_tolerance: 0.001   # 0.1% slippage tolerance
+  
+  # Signal generation weights
+  quantum_weight: 0.4         # Weight for quantum signals
+  agent_weight: 0.3           # Weight for agent signals
+  llm_weight: 0.3             # Weight for LLM signals
+
+# Risk Management Configuration
+risk_management:
+  # Position limits
+  max_position_size: 1000.0
+  max_positions_per_symbol: 1
+  max_total_positions: 5
+  
+  # Loss limits
+  max_daily_loss: 1000.0
+  max_drawdown: 0.1           # 10% max drawdown
+  stop_loss_pct: 0.02         # 2% stop loss
+  take_profit_pct: 0.05       # 5% take profit
+  
+  # Leverage
+  leverage_limit: 2.0
+  margin_call_pct: 0.8        # 80% margin call
+  liquidation_pct: 0.9        # 90% liquidation
+  
+  # VaR settings
+  var_confidence: 0.95        # 95% VaR
+  var_timeframe: 1            # 1 day VaR
+  
+  # Risk alerts
+  risk_alerts:
+    - "daily_loss_exceeded"
+    - "drawdown_exceeded"
+    - "position_limit_exceeded"
+    - "margin_call"
+
+# AI Configuration
+ai:
+  # Quantum Neural Network Settings
+  quantum_neural_network:
+    model_path: "models/quantum_nn.pt"
+    input_features: 10
+    hidden_layers: [128, 64, 32]
+    output_classes: 3          # BUY, SELL, HOLD
+    
+    # Training parameters
+    learning_rate: 0.001
+    batch_size: 32
+    epochs: 100
+    
+    # Quantum parameters
+    quantum_heads: 16
+    quantum_layers: 6
+    quantum_states: 8
+    coherence_threshold: 0.8
+  
+  # Trading Agent Settings
+  quantum_trading_agents:
+    num_agents: 5
+    state_dim: 10
+    action_dim: 3              # BUY, SELL, HOLD
+    
+    # Learning parameters
+    learning_rate: 0.001
+    discount_factor: 0.95
+    exploration_rate: 0.1
+    
+    # Memory parameters
+    memory_size: 10000
+    batch_size: 64
+    
+    # Coordination parameters
+    coordination_enabled: true
+    entanglement_strength: 0.5
+  
+  # LLM Integration Settings
+  llm_integration:
+    provider: "huggingface"
+    model: "mistralai/Mistral-7B-v0.1"
+    
+    # Model settings
+    max_tokens: 512
+    temperature: 0.7
+    top_p: 0.9
+    
+    # Prompt settings
+    trading_prompt: "Analyze market conditions and provide trading recommendation"
+    analysis_prompt: "Provide detailed market analysis"
+    risk_prompt: "Assess risk factors and provide risk management advice"
+    
+    # Cache settings
+    cache_enabled: true
+    cache_size: 1000
+    cache_ttl: 3600            # 1 hour cache TTL
+
+# Web Interface Configuration
+web:
+  # Server settings
+  http_port: 8080
+  websocket_port: 3001
+  update_interval: 1000        # Update interval in ms
+  
+  # Dashboard settings
+  dashboard_enabled: true
+  real_time_updates: true
+  chart_history: 100           # Number of data points to show
+  
+  # API settings
+  api_enabled: true
+  api_rate_limit: 1000         # Requests per minute
+  api_timeout: 30              # API timeout in seconds
+
+# Logging Configuration
+logging:
+  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: "INFO"
+  
+  # Log files
+  log_files:
+    main: "logs/live_trading.log"
+    orders: "logs/orders.log"
+    risk: "logs/risk.log"
+    performance: "logs/performance.log"
+  
+  # Log rotation
+  max_file_size: "10MB"
+  max_files: 5
+  
+  # Console logging
+  console_enabled: true
+  console_level: "INFO"
+
+# Alert System Configuration
+alerts:
+  # Email alerts
+  email:
+    enabled: false
+    smtp_server: "${SMTP_SERVER}"           # Loaded from environment
+    smtp_port: 587
+    username: "${EMAIL_USERNAME}"           # Loaded from environment
+    password: "${EMAIL_PASSWORD}"           # Loaded from environment
+    recipients:
+      - "trader@example.com"
+  
+  # SMS alerts
+  sms:
+    enabled: false
+    provider: "twilio"
+    account_sid: "${TWILIO_ACCOUNT_SID}"   # Loaded from environment
+    auth_token: "${TWILIO_AUTH_TOKEN}"     # Loaded from environment
+    phone_numbers:
+      - "+1234567890"
+  
+  # Webhook alerts
+  webhook:
+    enabled: false
+    url: "${WEBHOOK_URL}"                   # Loaded from environment
+    headers:
+      Authorization: "Bearer ${WEBHOOK_TOKEN}"  # Loaded from environment
+      Content-Type: "application/json"
+
+# Performance Configuration
+performance:
+  # System performance
+  max_cpu_usage: 80            # Maximum CPU usage percentage
+  max_memory_usage: 80         # Maximum memory usage percentage
+  max_disk_usage: 90           # Maximum disk usage percentage
+  
+  # Trading performance
+  signal_generation_timeout: 1000  # Signal generation timeout in ms
+  order_execution_timeout: 5000     # Order execution timeout in ms
+  portfolio_update_interval: 5000   # Portfolio update interval in ms
+  
+  # Cache settings
+  cache_enabled: true
+  cache_size: 1000
+  cache_ttl: 300               # Cache TTL in seconds
+
+# Security Configuration
+security:
+  # API security
+  api_key_encryption: true
+  rate_limiting: true
+  ip_whitelist: []
+  
+  # Data encryption
+  data_encryption: true
+  tls_enabled: true
+  
+  # Access control
+  authentication_enabled: false
+  authorization_enabled: false
+  
+  # Audit logging
+  audit_logging: true
+  audit_retention_days: 30
+
+# Development/Debug Configuration
+development:
+  # Debug mode
+  debug_mode: false
+  verbose_logging: false
+  
+  # Mock data (for testing)
+  mock_market_data: true
+  mock_exchange: true
+  
+  # Testing mode
+  paper_trading: true
+  backtesting: false
+  
+  # Simulation settings
+  simulation_speed: 1.0        # Simulation speed multiplier
+  random_seed: 42              # Random seed for reproducibility

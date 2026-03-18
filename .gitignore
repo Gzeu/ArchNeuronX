@@ -1,12 +1,24 @@
-# Build artifacts
+# Environment variables - SECURE!
+.env
+.env.*
+config/live_trading.yaml
+
+# Build directories
 build/
-cmake-build-*/
-*.o
-*.a
-*.so
-*.dylib
-*.dll
-*.exe
+dist/
+
+# Logs
+logs/
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # IDE files
 .vscode/
@@ -15,37 +27,49 @@ cmake-build-*/
 *.swo
 *~
 
-# OS files
-.DS_Store
-Thumbs.db
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Logs
-*.log
-logs/
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Temporary files
-tmp/
-temp/
 *.tmp
+*.temp
+*.bak
+*.backup
 
-# Compiled binaries
-bin/
-lib/
+# Security files
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
 
-# Test outputs
-test_results/
-coverage/
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
-# Profiling data
-*.prof
-*.profraw
-
-# CUDA
-*.ptx
-*.cubin
+# Cache
+.cache/
+cache/
 
 # Docker
 .dockerignore
 
-# Node modules (for dashboard)
+# Kubernetes
+secrets/ (for dashboard)
 dashboard/node_modules/
