@@ -1,0 +1,51 @@
+{
+  "name": "archneuronx-web-v4",
+  "version": "4.0.0",
+  "description": "ArchNeuronX v4.0 - Quantum Neural Trading Web Dashboard",
+  "main": "api-gateway/server.js",
+  "scripts": {
+    "start": "node api-gateway/server.js",
+    "dev": "nodemon api-gateway/server.js",
+    "build": "echo 'Build completed - Static files ready for deployment'",
+    "test": "echo 'Tests not implemented yet'",
+    "deploy": "echo 'Use Docker deployment with docker-compose.web.yml'"
+  },
+  "keywords": [
+    "trading",
+    "quantum-neural-networks",
+    "high-frequency-trading",
+    "dashboard",
+    "real-time",
+    "archneuronx"
+  ],
+  "author": "ArchNeuronX Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6",
+    "ws": "^8.14.2",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "compression": "^1.7.4",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gzeu/ArchNeuronX.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Gzeu/ArchNeuronX/issues"
+  },
+  "homepage": "https://github.com/Gzeu/ArchNeuronX#readme"
+}

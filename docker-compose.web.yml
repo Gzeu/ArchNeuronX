@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # ArchNeuronX v4.0 Trading Engine
+  archneuronx-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.v4.0.simple
+    container_name: archneuronx_v4_engine
+    ports:
+      - "8080:8080"
+    environment:
+      - ARCHNEURONX_VERSION=4.0.0
+      - ARCHNEURONX_MODE=production
+      - ARCHNEURONX_PORT=8080
+    volumes:
+      - ./config:/app/config
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - archneuronx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v4/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Web Gateway and API Gateway
+  web-gateway:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: archneuronx_web_gateway
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - PORT=3000
+      - ARCHNEURONX_API_URL=http://archneuronx-engine:8080
+      - NODE_ENV=production
+    depends_on:
+      archneuronx-engine:
+        condition: service_healthy
+    networks:
+      - archneuronx-network
+    restart: unless-stopped
+    volumes:
+      - ./web/logs:/app/logs
+
+  # Grafana Monitoring
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: archneuronx_grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=archneuronx_admin_v4
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - ./infrastructure/helm/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - archneuronx-network
+    restart: unless-stopped
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: archneuronx_prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./infrastructure/helm/prometheus-values.yaml:/etc/prometheus/prometheus.yml
+      - prometheus-storage:/prometheus
+    networks:
+      - archneuronx-network
+    restart: unless-stopped
+
+  # Redis for caching
+  redis:
+    image: redis:7.2-alpine
+    container_name: archneuronx_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass archneuronx_redis_v4
+    volumes:
+      - redis-data:/data
+    networks:
+      - archneuronx-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: archneuronx_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./web/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./web/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - web-gateway
+      - grafana
+    networks:
+      - archneuronx-network
+    restart: unless-stopped
+
+networks:
+  archneuronx-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  grafana-storage:
+  prometheus-storage:
+  redis-data:

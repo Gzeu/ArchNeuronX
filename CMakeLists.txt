@@ -67,18 +67,24 @@ endif()
 
 # CUDA 12.4 for v4.0 GPU acceleration
 if(USE_CUDA)
-    enable_language(CUDA)
-    find_package(CUDA 12.4 REQUIRED)
-    message(STATUS "Found CUDA ${CUDA_VERSION}")
-    
-    # v4.0 CUDA optimizations
-    set(CMAKE_CUDA_ARCHITECTURES 80;86;89;90)  # Ampere, Hopper
-    set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-    set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-    
-    # CUDA compiler options
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --use_fast_math")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-O3 --expt-relaxed-constexpr")
+    # Check for CUDA availability first
+    find_package(CUDA QUIET)
+    if(NOT CUDA_FOUND)
+        message(WARNING "CUDA not found. GPU acceleration will be disabled.")
+        set(USE_CUDA OFF CACHE BOOL "Disable CUDA" FORCE)
+    else()
+        enable_language(CUDA)
+        message(STATUS "Found CUDA ${CUDA_VERSION}")
+        
+        # v4.0 CUDA optimizations
+        set(CMAKE_CUDA_ARCHITECTURES 80;86;89;90)  # Ampere, Hopper
+        set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
+        set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+        
+        # CUDA compiler options
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --use_fast_math")
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-O3 --expt-relaxed-constexpr")
+    endif()
 endif()
 
 # TensorRT for v4.0 deployment
@@ -86,6 +92,9 @@ if(USE_TENSORRT)
     find_package(TensorRT REQUIRED)
     message(STATUS "Found TensorRT ${TensorRT_VERSION}")
 endif()
+
+# Additional CUDA setup for v4.0
+if(USE_CUDA)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 17)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)

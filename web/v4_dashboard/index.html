@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArchNeuronX v4.0 - Quantum Neural Trading Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #2d1b69 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .neon-glow {
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+        
+        .quantum-gradient {
+            background: linear-gradient(45deg, #00ff88, #00aaff, #ff00ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .status-online {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        
+        .status-warning {
+            background: #f59e0b;
+            box-shadow: 0 0 10px #f59e0b;
+        }
+        
+        .latency-excellent {
+            color: #10b981;
+        }
+        
+        .latency-good {
+            color: #3b82f6;
+        }
+        
+        .latency-warning {
+            color: #f59e0b;
+        }
+        
+        .signal-buy {
+            background: linear-gradient(45deg, #10b981, #059669);
+            color: white;
+        }
+        
+        .signal-sell {
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+            color: white;
+        }
+        
+        .signal-hold {
+            background: linear-gradient(45deg, #6b7280, #4b5563);
+            color: white;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.2);
+        }
+        
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar-item:hover {
+            background: rgba(0, 255, 136, 0.1);
+            border-left: 3px solid #00ff88;
+        }
+        
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #00ff88;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .quantum-grid {
+            background-image: 
+                linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 136, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        
+        .quantum-grid {
+            background-image: 
+                linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 136, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .quantum-grid::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, 
+                rgba(0, 255, 136, 0.03) 0%, 
+                transparent 50%, 
+                rgba(0, 255, 136, 0.03) 100%);
+            animation: quantumPulse 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes quantumPulse {
+            0%, 100% { 
+                opacity: 0.3;
+                transform: scale(1);
+            }
+            50% { 
+                opacity: 0.1;
+                transform: scale(1.05);
+            }
+        }
+        
+        .attention-heatmap {
+            background: radial-gradient(circle at center, 
+                rgba(0, 255, 136, 0.4) 0%, 
+                rgba(0, 255, 136, 0.2) 30%, 
+                rgba(0, 255, 136, 0.1) 60%, 
+                transparent 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .attention-heatmap::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 200px;
+            height: 200px;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle at center,
+                rgba(0, 255, 136, 0.6) 0%,
+                rgba(0, 255, 136, 0.3) 40%,
+                rgba(0, 255, 136, 0.1) 70%,
+                transparent 100%);
+            border-radius: 50%;
+            animation: attentionWave 3s ease-in-out infinite;
+        }
+        
+        @keyframes attentionWave {
+            0%, 100% { 
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.8;
+            }
+            50% { 
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0.4;
+            }
+        }
+        
+        .neural-network-visual {
+            background: linear-gradient(135deg, 
+                rgba(0, 255, 136, 0.1) 0%, 
+                rgba(0, 170, 255, 0.1) 100%);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .neural-network-visual::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.1) 0%, transparent 50%);
+            animation: neuralActivity 5s linear infinite;
+        }
+        
+        @keyframes neuralActivity {
+            0% { 
+                background-position: 0% 0%, 0% 0%, 50% 0%;
+            }
+            25% { 
+                background-position: 100% 0%, 0% 100%, 50% 50%;
+            }
+            50% { 
+                background-position: 0% 100%, 100% 0%, 50% 100%;
+            }
+            75% { 
+                background-position: 100% 100%, 0% 100%, 50% 50%;
+            }
+            100% { 
+                background-position: 0% 0%, 100% 100%, 50% 0%;
+            }
+        }
+        
+        .quantum-particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(0, 255, 136, 0.8);
+            border-radius: 50%;
+            animation: quantumFloat 6s ease-in-out infinite;
+        }
+        
+        @keyframes quantumFloat {
+            0%, 100% { 
+                transform: translateY(0px) translateX(0px);
+                opacity: 0;
+            }
+            25% { 
+                transform: translateY(-20px) translateX(10px);
+                opacity: 0.8;
+            }
+            50% { 
+                transform: translateY(-40px) translateX(-10px);
+                opacity: 0.6;
+            }
+            75% { 
+                transform: translateY(-20px) translateX(-30px);
+                opacity: 0.4;
+            }
+        }
+        
+        .enhanced-chart {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            backdrop-filter: blur(20px);
+            position: relative;
+        }
+        
+        .enhanced-chart::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, 
+                rgba(0, 255, 136, 0.1) 0%, 
+                transparent 50%, 
+                rgba(0, 255, 136, 0.1) 100%);
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .performance-ring {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+        
+        .performance-ring svg {
+            transform: rotate(-90deg);
+        }
+        
+        .performance-ring circle {
+            fill: none;
+            stroke: rgba(0, 255, 136, 0.2);
+            stroke-width: 8;
+            stroke-linecap: round;
+        }
+        
+        .performance-ring .background {
+            stroke: rgba(0, 255, 136, 0.1);
+        }
+        
+        .performance-ring .progress {
+            stroke: #00ff88;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        
+        .signal-card {
+            background: linear-gradient(135deg, 
+                rgba(0, 0, 0, 0.9) 0%, 
+                rgba(0, 255, 136, 0.1) 100%);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .signal-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, 
+                rgba(0, 255, 136, 0.2) 0%, 
+                transparent 50%, 
+                rgba(0, 255, 136, 0.2) 100%);
+            z-index: -1;
+        }
+        
+        .signal-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 255, 136, 0.4);
+        }
+        
+        .metric-enhanced {
+            background: linear-gradient(135deg, 
+                rgba(0, 0, 0, 0.95) 0%, 
+                rgba(0, 255, 136, 0.05) 100%);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .metric-enhanced::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0, 255, 136, 0.1) 50%, 
+                transparent 100%);
+            animation: metricGlow 3s ease-in-out infinite alternate;
+        }
+        
+        @keyframes metricGlow {
+            0% { 
+                opacity: 0.5;
+            }
+            100% { 
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="glass-effect border-b border-gray-700 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
+                        <i data-lucide="brain" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold quantum-gradient">ArchNeuronX v4.0</h1>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="status-online w-3 h-3 rounded-full pulse-animation"></div>
+                    <span class="text-sm text-green-400">Quantum Engine Active</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <!-- Performance Metrics -->
+                <div class="flex items-center space-x-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold latency-excellent" id="latency">15.2μs</div>
+                        <div class="text-xs text-gray-400">Latency</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-400" id="throughput">512K</div>
+                        <div class="text-xs text-gray-400">Ops/sec</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-400" id="accuracy">87.3%</div>
+                        <div class="text-xs text-gray-400">Accuracy</div>
+                    </div>
+                </div>
+                
+                <!-- Status Indicators -->
+                <div class="flex items-center space-x-3">
+                    <div class="relative">
+                        <i data-lucide="bell" class="w-5 h-5 text-gray-400"></i>
+                        <div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                    </div>
+                    <i data-lucide="settings" class="w-5 h-5 text-gray-400 hover:text-white cursor-pointer"></i>
+                    <div class="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
+                        <span class="text-sm font-bold">JD</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex h-screen pt-16">
+        <!-- Sidebar -->
+        <aside class="w-64 glass-effect border-r border-gray-700">
+            <nav class="p-4 space-y-2">
+                <div class="sidebar-item p-3 rounded-lg cursor-pointer flex items-center space-x-3" onclick="showSection('dashboard')">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="sidebar-item p-3 rounded-lg cursor-pointer flex items-center space-x-3" onclick="showSection('trading')">
+                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+                    <span>Trading</span>
+                </div>
+                <div class="sidebar-item p-3 rounded-lg cursor-pointer flex items-center space-x-3" onclick="showSection('quantum')">
+                    <i data-lucide="cpu" class="w-5 h-5"></i>
+                    <span>Quantum AI</span>
+                </div>
+                <div class="sidebar-item p-3 rounded-lg cursor-pointer flex items-center space-x-3" onclick="showSection('analytics')">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                    <span>Analytics</span>
+                </div>
+                <div class="sidebar-item p-3 rounded-lg cursor-pointer flex items-center space-x-3" onclick="showSection('monitoring')">
+                    <i data-lucide="activity" class="w-5 h-5"></i>
+                    <span>Monitoring</span>
+                </div>
+                <div class="sidebar-item p-3 rounded-lg cursor-pointer flex items-center space-x-3" onclick="showSection('portfolio')">
+                    <i data-lucide="briefcase" class="w-5 h-5"></i>
+                    <span>Portfolio</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6 overflow-auto">
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="space-y-6">
+                <!-- Key Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="metric-card glass-effect p-6 rounded-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm text-gray-400">Total Portfolio Value</div>
+                                <div class="text-2xl font-bold text-green-400">$2,847,500</div>
+                                <div class="text-sm text-green-400">+1.2% today</div>
+                            </div>
+                            <i data-lucide="dollar-sign" class="w-8 h-8 text-green-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card glass-effect p-6 rounded-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm text-gray-400">Active Positions</div>
+                                <div class="text-2xl font-bold text-blue-400">42</div>
+                                <div class="text-sm text-gray-400">4 long, 38 short</div>
+                            </div>
+                            <i data-lucide="layers" class="w-8 h-8 text-blue-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card glass-effect p-6 rounded-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm text-gray-400">Daily P&L</div>
+                                <div class="text-2xl font-bold text-green-400">+$15,750</div>
+                                <div class="text-sm text-green-400">0.55% return</div>
+                            </div>
+                            <i data-lucide="trending-up" class="w-8 h-8 text-green-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card glass-effect p-6 rounded-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm text-gray-400">Win Rate Today</div>
+                                <div class="text-2xl font-bold text-purple-400">89.2%</div>
+                                <div class="text-sm text-gray-400">124,567 signals</div>
+                            </div>
+                            <i data-lucide="target" class="w-8 h-8 text-purple-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Performance Metrics -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Latency Ring -->
+                    <div class="metric-enhanced p-6 rounded-xl">
+                        <h4 class="font-semibold mb-4">Latency Performance</h4>
+                        <div class="performance-ring">
+                            <svg width="120" height="120">
+                                <circle cx="60" cy="60" r="54" class="background"></circle>
+                                <circle cx="60" cy="60" r="54" class="progress" 
+                                        stroke-dasharray="339.292" 
+                                        stroke-dashoffset="339.292 - (339.292 * 0.76)"></circle>
+                            </svg>
+                            <div class="text-center mt-4">
+                                <div class="text-3xl font-bold text-green-400">15.2μs</div>
+                                <div class="text-sm text-gray-400">Target: &lt;20μs</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Throughput Meter -->
+                    <div class="metric-enhanced p-6 rounded-xl">
+                        <h4 class="font-semibold mb-4">Throughput Performance</h4>
+                        <div class="enhanced-chart">
+                            <div class="h-32 bg-gradient-to-r from-green-900 to-green-600 rounded-lg flex items-center justify-center">
+                                <div class="text-3xl font-bold text-white">512K</div>
+                                <div class="text-sm text-green-200">ops/sec</div>
+                            </div>
+                            <div class="mt-2 text-center">
+                                <div class="text-xs text-gray-400">Target: &gt;500K</div>
+                                <div class="text-xs text-green-400">102.4% of target</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Signals Enhanced -->
+                <div class="glass-effect p-6 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-4">Live Trading Signals</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="signalsGrid">
+                        <!-- Signals will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Trading Section -->
+            <section id="trading-section" class="space-y-6 hidden">
+                <h2 class="text-2xl font-bold">Trading Operations</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Order Book -->
+                    <div class="glass-effect p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold mb-4">Order Book</h3>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-red-400">Price</span>
+                                <span class="text-red-400">Size</span>
+                                <span class="text-green-400">Price</span>
+                                <span class="text-green-400">Size</span>
+                            </div>
+                            <!-- Order book entries will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Active Orders -->
+                    <div class="glass-effect p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold mb-4">Active Orders</h3>
+                        <div class="space-y-2" id="activeOrders">
+                            <!-- Active orders will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quantum AI Section -->
+            <section id="quantum-section" class="space-y-6 hidden">
+                <h2 class="text-2xl font-bold">Quantum Neural Networks</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Quantum Model Status -->
+                    <div class="glass-effect p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold mb-4">Quantum Neural Network v4.0</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between">
+                                <span>Status</span>
+                                <span class="text-green-400">Active</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Accuracy</span>
+                                <span class="text-green-400">87.3%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Parameters</span>
+                                <span>125M</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Layers</span>
+                                <span>16</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Attention Heads</span>
+                                <span>16</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Latency</span>
+                                <span class="text-green-400">18.5μs</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ensemble Model -->
+                    <div class="glass-effect p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold mb-4">V4 Ensemble Model</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between">
+                                <span>Status</span>
+                                <span class="text-green-400">Active</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Models</span>
+                                <span>16</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Weighted Voting</span>
+                                <span class="text-green-400">Enabled</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Performance</span>
+                                <span class="text-green-400">92.1%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Ensemble Method</span>
+                                <span>Weighted Average</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quantum Attention Visualization -->
+                <div class="glass-effect p-6 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-4">Quantum Attention Heatmap</h3>
+                    <div class="quantum-grid attention-heatmap p-8 rounded-lg" style="height: 400px;">
+                        <div class="flex items-center justify-center h-full">
+                            <div class="text-center">
+                                <div class="quantum-particle" style="position: absolute; top: 20%; left: 15%; width: 3px; height: 3px; background: rgba(0, 255, 136, 0.8); border-radius: 50%; animation: quantumFloat 4s ease-in-out infinite;"></div>
+                                <div class="quantum-particle" style="position: absolute; top: 60%; left: 25%; width: 2px; height: 2px; background: rgba(0, 255, 136, 0.6); border-radius: 50%; animation: quantumFloat 4s ease-in-out infinite 0.5s;"></div>
+                                <div class="quantum-particle" style="position: absolute; top: 30%; left: 70%; width: 4px; height: 4px; background: rgba(0, 255, 136, 0.7); border-radius: 50%; animation: quantumFloat 4s ease-in-out infinite 1s;"></div>
+                                <div class="quantum-particle" style="position: absolute; top: 70%; left: 40%; width: 2px; height: 2px; background: rgba(0, 255, 136, 0.9); border-radius: 50%; animation: quantumFloat 4s ease-in-out infinite 1.5s;"></div>
+                                <div class="quantum-particle" style="position: absolute; top: 15%; left: 60%; width: 3px; height: 3px; background: rgba(0, 255, 136, 0.5); border-radius: 50%; animation: quantumFloat 4s ease-in-out infinite 2s;"></div>
+                                <div class="quantum-particle" style="position: absolute; top: 80%; left: 20%; width: 2px; height: 2px; background: rgba(0, 255, 136, 0.8); border-radius: 50%; animation: quantumFloat 4s ease-in-out infinite 2.5s;"></div>
+                                <div class="quantum-particle" style="position: absolute; top: 45%; left: 80%; width: 3px; height: 3px; background: rgba(0, 255, 136, 0.6); border-radius: 50%; animation: quantumFloat 4s ease-in-out infinite 3s;"></div>
+                                <div class="quantum-particle" style="position: absolute; top: 25%; left: 85%; width: 2px; height: 2px; background: rgba(0, 255, 136, 0.7); border-radius: 50%; animation: quantumFloat 4s ease-in-out infinite 3.5s;"></div>
+                                <div class="neural-network-visual p-4 rounded-lg" style="height: 300px; margin-top: 20px;">
+                                    <div class="text-center text-white">
+                                        <div class="text-sm mb-2 opacity-75">Quantum Neural Activity</div>
+                                        <div class="text-xs opacity-50">16-head attention mechanism</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analytics Section -->
+            <section id="analytics-section" class="space-y-6 hidden">
+                <h2 class="text-2xl font-bold">Analytics & Performance</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Profit/Loss Chart -->
+                    <div class="glass-effect p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold mb-4">Profit & Loss Analysis</h3>
+                        <div class="chart-container">
+                            <canvas id="pnlChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Risk Metrics -->
+                    <div class="glass-effect p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold mb-4">Risk Metrics</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between">
+                                <span>Portfolio Beta</span>
+                                <span>1.23</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Volatility</span>
+                                <span>15.6%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Sharpe Ratio</span>
+                                <span class="text-green-400">2.34</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Max Drawdown</span>
+                                <span class="text-red-400">-8.9%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Value at Risk (95%)</span>
+                                <span>$45,230</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Monitoring Section -->
+            <section id="monitoring-section" class="space-y-6 hidden">
+                <h2 class="text-2xl font-bold">System Monitoring</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <!-- GPU Utilization -->
+                    <div class="glass-effect p-4 rounded-xl">
+                        <h4 class="font-semibold mb-2">GPU Utilization</h4>
+                        <div class="text-3xl font-bold text-green-400">85.3%</div>
+                        <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                            <div class="bg-green-400 h-2 rounded-full" style="width: 85.3%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- CPU Utilization -->
+                    <div class="glass-effect p-4 rounded-xl">
+                        <h4 class="font-semibold mb-2">CPU Utilization</h4>
+                        <div class="text-3xl font-bold text-blue-400">72.1%</div>
+                        <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                            <div class="bg-blue-400 h-2 rounded-full" style="width: 72.1%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Memory Usage -->
+                    <div class="glass-effect p-4 rounded-xl">
+                        <h4 class="font-semibold mb-2">Memory Usage</h4>
+                        <div class="text-3xl font-bold text-yellow-400">68.9%</div>
+                        <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                            <div class="bg-yellow-400 h-2 rounded-full" style="width: 68.9%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Infrastructure Status -->
+                <div class="glass-effect p-6 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-4">Infrastructure Status</h3>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-400">4</div>
+                            <div class="text-sm text-gray-400">GPU Nodes</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-400">8</div>
+                            <div class="text-sm text-gray-400">CPU Nodes</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-400">168.5h</div>
+                            <div class="text-sm text-gray-400">Uptime</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-400">99.99%</div>
+                            <div class="text-sm text-gray-400">Availability</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Portfolio Section -->
+            <section id="portfolio-section" class="space-y-6 hidden">
+                <h2 class="text-2xl font-bold">Portfolio Management</h2>
+                
+                <!-- Portfolio Overview -->
+                <div class="glass-effect p-6 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-4">Portfolio Overview</h3>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <div class="text-sm text-gray-400">Total Value</div>
+                            <div class="text-xl font-bold text-green-400">$2,847,500.50</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-400">Cash Balance</div>
+                            <div class="text-xl font-bold">$456,750.50</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-400">Invested Value</div>
+                            <div class="text-xl font-bold">$2,390,750.00</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-400">Daily Return</div>
+                            <div class="text-xl font-bold text-green-400">0.56%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Positions -->
+                <div class="glass-effect p-6 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-4">Current Positions</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="text-left py-2">Symbol</th>
+                                    <th class="text-left py-2">Quantity</th>
+                                    <th class="text-left py-2">Avg Price</th>
+                                    <th class="text-left py-2">Current Price</th>
+                                    <th class="text-left py-2">Market Value</th>
+                                    <th class="text-left py-2">P&L</th>
+                                    <th class="text-left py-2">Return</th>
+                                </tr>
+                            </thead>
+                            <tbody id="positionsTable">
+                                <!-- Positions will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Global variables
+        let currentSection = 'dashboard';
+        let charts = {};
+        let updateInterval;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            loadInitialData();
+            startRealTimeUpdates();
+        });
+
+        // Section navigation
+        function showSection(section) {
+            // Hide all sections
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+            
+            // Show selected section
+            document.getElementById(section + '-section').classList.remove('hidden');
+            
+            // Update sidebar active state
+            document.querySelectorAll('.sidebar-item').forEach(item => {
+                item.classList.remove('bg-green-900');
+            });
+            event.currentTarget.classList.add('bg-green-900');
+            
+            currentSection = section;
+            
+            // Update charts if needed
+            if (section === 'analytics') {
+                updateAnalyticsCharts();
+            }
+        }
+
+        // Initialize charts
+        function initializeCharts() {
+            // Performance Chart
+            const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+            charts.performance = new Chart(performanceCtx, {
+                type: 'line',
+                data: {
+                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+                    datasets: [{
+                        label: 'Latency (μs)',
+                        data: [18.2, 17.8, 16.5, 15.2, 14.8, 15.2],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Throughput (K ops/sec)',
+                        data: [480, 490, 510, 512, 508, 512],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#ffffff' }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#ffffff' }
+                        }
+                    }
+                }
+            });
+
+            // Signal Distribution Chart
+            const signalCtx = document.getElementById('signalChart').getContext('2d');
+            charts.signal = new Chart(signalCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['BUY', 'SELL', 'HOLD'],
+                    datasets: [{
+                        data: [45, 35, 20],
+                        backgroundColor: ['#10b981', '#ef4444', '#6b7280'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    }
+                }
+            });
+
+            // P&L Chart
+            const pnlCtx = document.getElementById('pnlChart');
+            if (pnlCtx) {
+                charts.pnl = new Chart(pnlCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                        datasets: [{
+                            label: 'Daily P&L',
+                            data: [12500, 8900, 15750, 12300, 15750],
+                            backgroundColor: function(context) {
+                                const value = context.raw;
+                                return value >= 0 ? '#10b981' : '#ef4444';
+                            }
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: { color: '#ffffff' }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                ticks: { color: '#ffffff' }
+                            },
+                            y: {
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                ticks: { color: '#ffffff' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Load initial data
+        async function loadInitialData() {
+            try {
+                // Load signals
+                const response = await fetch('/api/v4/signals');
+                const data = await response.json();
+                populateSignalsTable(data.signals);
+                
+                // Load portfolio
+                const portfolioResponse = await fetch('/api/v4/portfolio');
+                const portfolioData = await portfolioResponse.json();
+                populatePositionsTable(portfolioData.portfolio.positions);
+                
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                // Use mock data for demo
+                loadMockData();
+            }
+        }
+
+        // Enhanced signal population
+        function populateSignalsTableEnhanced(signals) {
+            const grid = document.getElementById('signalsGrid');
+            grid.innerHTML = signals.map((signal, index) => `
+                <div class="signal-card p-4 rounded-xl transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 rounded-lg flex items-center justify-center ${signal.action.toLowerCase() === 'buy' ? 'bg-green-500' : signal.action.toLowerCase() === 'sell' ? 'bg-red-500' : 'bg-gray-600'}">
+                                <i data-lucide="${signal.action.toLowerCase() === 'buy' ? 'trending-up' : signal.action.toLowerCase() === 'sell' ? 'trending-down' : 'minus'}" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div>
+                                <div class="font-bold text-lg">${signal.symbol}</div>
+                                <div class="text-sm opacity-75">${new Date(signal.timestamp).toLocaleTimeString()}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold ${(signal.confidence * 100).toFixed(1)}%</div>
+                            <div class="text-xs text-gray-400">confidence</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Price:</span>
+                            <span class="font-mono">$${signal.price}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Quantity:</span>
+                            <span class="font-mono">${signal.quantity}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Expected Return:</span>
+                            <span class="font-mono ${(signal.expected_return * 100).toFixed(2)}%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Risk Score:</span>
+                            <span class="font-mono">${signal.risk_score}</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-gray-700">
+                        <div class="flex justify-between items-center">
+                            <div class="text-xs text-gray-400">
+                                <i data-lucide="activity" class="w-4 h-4 inline mr-2"></i>
+                                Signal #${index + 1} • ${(Math.random() * 100 + 400).toFixed(0)}ms latency
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors">
+                                    Execute Order
+                                </button>
+                                <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors">
+                                    View Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Populate positions table
+        function populatePositionsTable(positions) {
+            const tbody = document.getElementById('positionsTable');
+            tbody.innerHTML = positions.map(position => `
+                <tr class="border-b border-gray-800">
+                    <td class="py-2">${position.symbol}</td>
+                    <td class="py-2">${position.quantity}</td>
+                    <td class="py-2">$${position.avg_price}</td>
+                    <td class="py-2">$${position.current_price}</td>
+                    <td class="py-2">$${position.market_value}</td>
+                    <td class="py-2 ${position.pnl >= 0 ? 'text-green-400' : 'text-red-400'}">
+                        $${position.pnl}
+                    </td>
+                    <td class="py-2 ${position.return >= 0 ? 'text-green-400' : 'text-red-400'}">
+                        ${(position.return * 100).toFixed(2)}%
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Load mock data (for demo purposes)
+        function loadMockDataEnhanced() {
+            const mockSignals = [
+                { symbol: 'AAPL', action: 'BUY', confidence: 0.892, price: 175.25, quantity: 100, expected_return: 0.023, risk_score: 0.156, timestamp: Date.now() },
+                { symbol: 'MSFT', action: 'SELL', confidence: 0.845, price: 375.50, quantity: 50, expected_return: -0.018, risk_score: 0.234, timestamp: Date.now() - 1000 },
+                { symbol: 'GOOGL', action: 'BUY', confidence: 0.912, price: 142.80, quantity: 75, expected_return: 0.031, risk_score: 0.189, timestamp: Date.now() - 2000 },
+                { symbol: 'AMZN', action: 'HOLD', confidence: 0.678, price: 145.60, quantity: 60, expected_return: 0.005, risk_score: 0.089, timestamp: Date.now() - 3000 },
+                { symbol: 'TSLA', action: 'BUY', confidence: 0.934, price: 245.80, quantity: 30, expected_return: 0.042, risk_score: 0.167, timestamp: Date.now() - 4000 },
+                { symbol: 'NVDA', action: 'SELL', confidence: 0.878, price: 485.50, quantity: 25, expected_return: -0.025, risk_score: 0.198, timestamp: Date.now() - 5000 }
+            ];
+            
+            const mockPositions = [
+                { symbol: 'AAPL', quantity: 100, avg_price: 172.50, current_price: 175.25, market_value: 17525.00, pnl: 275.00, return: 0.0159 },
+                { symbol: 'MSFT', quantity: 50, avg_price: 378.00, current_price: 375.50, market_value: 18775.00, pnl: -125.00, return: -0.0066 },
+                { symbol: 'GOOGL', quantity: 75, avg_price: 140.20, current_price: 142.80, market_value: 10710.00, pnl: 195.00, return: 0.0185 },
+                { symbol: 'AMZN', quantity: 60, avg_price: 148.30, current_price: 145.60, market_value: 8736.00, pnl: -162.00, return: -0.0182 },
+                { symbol: 'TSLA', quantity: 30, avg_price: 240.10, current_price: 245.80, market_value: 7374.00, pnl: 171.00, return: 0.0237 },
+                { symbol: 'NVDA', quantity: 25, avg_price: 495.20, current_price: 485.50, market_value: 12137.50, pnl: -242.50, return: -0.0249 }
+            ];
+            
+            populateSignalsTableEnhanced(mockSignals);
+            populatePositionsTable(mockPositions);
+        }
+
+        // Start real-time updates
+        function startRealTimeUpdates() {
+            updateInterval = setInterval(() => {
+                updateMetrics();
+                updateCharts();
+                updateSignalCards();
+            }, 3000); // Update every 3 seconds for better responsiveness
+            
+            // Initialize signal cards update function
+            window.updateSignalCards = updateSignalCards;
+        }
+
+        // Update metrics
+        function updateMetrics() {
+            // Simulate real-time updates
+            const latency = (15 + Math.random() * 5).toFixed(1);
+            const throughput = (500 + Math.random() * 50).toFixed(0);
+            const accuracy = (87 + Math.random() * 2).toFixed(1);
+            
+            document.getElementById('latency').textContent = latency + 'μs';
+            document.getElementById('throughput').textContent = throughput + 'K';
+            document.getElementById('accuracy').textContent = accuracy + '%';
+            
+            // Update latency color based on value
+            const latencyElement = document.getElementById('latency');
+            latencyElement.className = latency < 20 ? 'text-2xl font-bold latency-excellent' : 
+                                         latency < 30 ? 'text-2xl font-bold latency-good' : 
+                                         'text-2xl font-bold latency-warning';
+        }
+
+        // Update charts with new data
+        function updateCharts() {
+            if (charts.performance) {
+                // Add new data point
+                const newLatency = 15 + Math.random() * 5;
+                const newThroughput = 500 + Math.random() * 50;
+                
+                charts.performance.data.datasets[0].data.push(newLatency);
+                charts.performance.data.datasets[1].data.push(newThroughput);
+                
+                // Keep only last 10 points
+                if (charts.performance.data.datasets[0].data.length > 10) {
+                    charts.performance.data.datasets[0].data.shift();
+                    charts.performance.data.datasets[1].data.shift();
+                }
+                
+                charts.performance.update('none');
+            }
+            
+            // Update signal cards with real-time data
+            if (typeof updateSignalCards === 'function') {
+                updateSignalCards();
+            }
+        }
+
+        // Update signal cards with real-time data
+        function updateSignalCards() {
+            const signalCards = document.querySelectorAll('.signal-card');
+            signalCards.forEach((card, index) => {
+                // Add real-time updates
+                const latency = (Math.random() * 10 + 5).toFixed(1);
+                const confidence = (85 + Math.random() * 10).toFixed(1);
+                
+                // Update confidence display
+                const confidenceElement = card.querySelector('.text-2xl');
+                if (confidenceElement) {
+                    confidenceElement.textContent = `${confidence}%`;
+                }
+                
+                // Add pulse animation for high confidence
+                if (confidence > 90) {
+                    card.classList.add('pulse-animation');
+                } else {
+                    card.classList.remove('pulse-animation');
+                }
+            });
+        }
+
+        // Update analytics charts
+        function updateAnalyticsCharts() {
+            if (!charts.pnl) {
+                const pnlCtx = document.getElementById('pnlChart');
+                if (pnlCtx) {
+                    charts.pnl = new Chart(pnlCtx.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                            datasets: [{
+                                label: 'Daily P&L',
+                                data: [12500, 8900, 15750, 12300, 15750],
+                                backgroundColor: function(context) {
+                                    const value = context.raw;
+                                    return value >= 0 ? '#10b981' : '#ef4444';
+                                }
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    labels: { color: '#ffffff' }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    ticks: { color: '#ffffff' }
+                                },
+                                y: {
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    ticks: { color: '#ffffff' }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -283,7 +283,7 @@ error_budget_management:
     
     slow_burn:
       - "Continue normal operations"
-      "Optimize resource allocation"
+      - "Optimize resource allocation"
 
 # ============================================================
 # SLO REPORTING AND MONITORING
