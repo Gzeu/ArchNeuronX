@@ -3,7 +3,7 @@
 # CUDA 12.4 + LibTorch 2.6 + Ultra-Low Latency Optimization
 # ============================================================
 
-FROM nvidia/cuda:12.4-devel-ubuntu22.04
+FROM nvidia/cuda:13.2.0-devel-ubuntu22.04
 
 LABEL maintainer="ArchNeuronX Team"
 LABEL version="4.0.0"
