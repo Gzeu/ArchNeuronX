@@ -3,7 +3,7 @@
 # Market-Dominating Execution Engine - CPU Version
 # ============================================================
 
-FROM ubuntu:22.04
+FROM ubuntu:26.04
 
 LABEL maintainer="ArchNeuronX Team"
 LABEL version="4.0.0"
